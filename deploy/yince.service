@@ -33,11 +33,19 @@ RestrictRealtime=yes
 LockPersonality=yes
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+# This static server only accepts requests. Block new outbound connections,
+# including connections to other services on the host's loopback interface.
+SystemCallFilter=~connect
+SystemCallErrorNumber=EPERM
 IPAddressDeny=any
 IPAddressAllow=localhost
 InaccessiblePaths=/var/lib /var/www /opt /etc/nginx /etc/letsencrypt -/etc/xcoria-orders.env -/etc/sing-box
 ReadOnlyPaths=/srv/yince /etc/yince
 ReadWritePaths=/run/yince
+# Ubuntu Nginx 1.18 opens its compiled log path before reading the config.
+# Map that path to this service's runtime directory in its private namespace.
+BindPaths=/run/yince:/var/log/nginx
 MemoryMax=96M
 CPUQuota=15%
 TasksMax=16

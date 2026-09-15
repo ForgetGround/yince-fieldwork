@@ -1,0 +1,50 @@
+[Unit]
+Description=Yince fieldwork isolated static web service
+After=network.target
+
+[Service]
+Type=simple
+User=yince-web
+Group=yince-web
+RuntimeDirectory=yince
+RuntimeDirectoryMode=0750
+WorkingDirectory=/srv/yince
+ExecStartPre=/usr/sbin/nginx -t -q -p /run/yince/ -c /etc/yince/nginx.conf
+ExecStart=/usr/sbin/nginx -p /run/yince/ -c /etc/yince/nginx.conf -g "daemon off;"
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGQUIT
+TimeoutStopSec=15
+Restart=on-failure
+RestartSec=3
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+InaccessiblePaths=/var/lib /var/www /opt /etc/nginx /etc/letsencrypt -/etc/xcoria-orders.env -/etc/sing-box
+ReadOnlyPaths=/srv/yince /etc/yince
+ReadWritePaths=/run/yince
+MemoryMax=96M
+CPUQuota=15%
+TasksMax=16
+LimitNOFILE=2048
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yince
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,45 @@
+[Unit]
+Description=Yince dedicated PostgreSQL cluster
+After=local-fs.target
+
+[Service]
+Type=simple
+User=yince-db
+Group=yince-db
+RuntimeDirectory=yince-db
+RuntimeDirectoryMode=0770
+ExecStart=/srv/yince-db/runtime/usr/lib/postgresql/14/bin/postgres -D /var/lib/yince-db/data -c config_file=/etc/yince-db/postgresql.conf
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+TimeoutStopSec=60
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ReadWritePaths=/var/lib/yince-db /run/yince-db
+InaccessiblePaths=/var/www /opt /etc/nginx /etc/letsencrypt /srv/yince /srv/yince-api -/var/lib/xcoria-orders -/etc/xcoria-orders.env -/etc/sing-box
+MemoryMax=192M
+CPUQuota=30%
+TasksMax=32
+LimitNOFILE=4096
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yince-db
+
+[Install]
+WantedBy=multi-user.target

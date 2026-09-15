@@ -1,0 +1,12 @@
+[Unit]
+Description=Yince API private gateway socket
+
+[Socket]
+ListenStream=/run/yince-api.sock
+SocketUser=yince-api
+SocketGroup=www-data
+SocketMode=0660
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target

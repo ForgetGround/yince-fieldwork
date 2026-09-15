@@ -1,0 +1,47 @@
+[Unit]
+Description=Yince authenticated workspace API
+Requires=yince-db.service yince-api.socket
+After=yince-db.service yince-api.socket
+
+[Service]
+Type=simple
+User=yince-api
+Group=yince-api
+SupplementaryGroups=yince-db
+WorkingDirectory=/srv/yince-api/current
+EnvironmentFile=/etc/yince-api.env
+Environment=NODE_ENV=production UV_THREADPOOL_SIZE=2
+ExecStart=/srv/yince-api/runtime/node-v24.21.0-linux-x64/bin/node --max-old-space-size=112 /srv/yince-api/current/server/app.ts
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @raw-io @obsolete
+IPAddressDeny=any
+InaccessiblePaths=/var/www /opt /etc/nginx /etc/letsencrypt /var/lib/yince-db /etc/yince-db /srv/yince-db -/var/lib/xcoria-orders -/etc/xcoria-orders.env -/etc/sing-box -/run/dbus -/run/systemd/private
+MemoryMax=256M
+CPUQuota=30%
+TasksMax=32
+LimitNOFILE=2048
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yince-api
+
+[Install]
+WantedBy=multi-user.target

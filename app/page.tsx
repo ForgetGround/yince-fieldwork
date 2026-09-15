@@ -1,40 +1,977 @@
 "use client";
-import {useEffect,useMemo,useRef,useState} from 'react';
-import {Landmark,LayoutDashboard,ScanLine,Users,ClipboardList,ShieldCheck,ChevronRight,ArrowRight,ArrowUpRight,Upload,Sparkles,Clock3,Bell,CircleHelp,Check,Activity,Search} from 'lucide-react';
-import {SidebarProvider,Sidebar,SidebarHeader,SidebarContent,SidebarFooter,SidebarMenu,SidebarMenuItem,SidebarMenuButton,SidebarTrigger,useSidebar} from '@/components/ui/sidebar';
-import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
-import {Checkbox} from '@/components/ui/checkbox';
-import {Input} from '@/components/ui/input';
-import {Toaster,toast} from 'sonner';
-import {PageTitle,CustomerTable,Empty,RulesView,CustomerDetail,VisitEditor,FollowupView,ImportDialog,AuditView,Guide,SourceDialog} from '@/components/workbench-views';
-import {type State,type Rule,type Customer,type Visit,initialState,ranked,opportunity,activateRule,downloadJson,DEMO_DATE,signals} from '@/lib/workbench';
-const nav=[{id:'overview',name:'展业工作台',icon:LayoutDashboard},{id:'rules',name:'政策规则库',icon:ScanLine},{id:'customers',name:'客户机会',icon:Users},{id:'followups',name:'访后跟进',icon:ClipboardList},{id:'audit',name:'合规与审计',icon:ShieldCheck}];
-const STORAGE='yince-workbench-v2';
-function NavigationButton({item,active,count,onNavigate}:{item:typeof nav[number];active:boolean;count:number;onNavigate:(id:string)=>void}){const {setOpenMobile}=useSidebar();return <SidebarMenuButton className="nav-item" isActive={active} onClick={()=>{onNavigate(item.id);setOpenMobile(false)}}><item.icon size={19}/><span>{item.name}</span>{item.id==='rules'&&count>0&&<b className="nav-count">{count}</b>}</SidebarMenuButton>}
-
-export default function Home(){
- const[state,setState]=useState<State>(initialState);const[ready,setReady]=useState(false);const[storageIssue,setStorageIssue]=useState(false);const[view,setView]=useState('overview');const[filter,setFilter]=useState('all');const[query,setQuery]=useState('');const[page,setPage]=useState(1);const[customer,setCustomer]=useState<Customer|null>(null);const[source,setSource]=useState<Rule|null>(null);const[visitCustomer,setVisitCustomer]=useState<Customer|null>(null);const[importOpen,setImportOpen]=useState(false);const[guide,setGuide]=useState(false);const snapshot=useRef(state);snapshot.current=state;
- useEffect(()=>{try{const saved=localStorage.getItem(STORAGE);if(saved){const parsed=JSON.parse(saved);if(parsed.schema===1&&Array.isArray(parsed.customers)&&Array.isArray(parsed.rules)&&Array.isArray(parsed.audit)&&Array.isArray(parsed.tasks)&&Array.isArray(parsed.visits)){if(!parsed.rules.some((r:Rule)=>r.id==='R-008'))parsed.rules.push(initialState().rules.find(r=>r.id==='R-008'));setState(parsed);}else setStorageIssue(true)}}catch{setStorageIssue(true)}setReady(true)},[]);
- useEffect(()=>{if(!ready)return;try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{setStorageIssue(true)}},[state,ready]);
- function change(action:string,target:string,detail:string,mutate?:(s:State)=>State){setState(prev=>{const next=mutate?mutate(prev):prev;return {...next,audit:[...next.audit,{id:crypto.randomUUID(),time:new Date().toISOString(),actor:'陈经理（演示角色）',action,target,detail}]}})}
- function navigate(next:string){setView(next);setPage(1);setQuery('');setFilter('all');}
- function openCustomer(c:Customer){setCustomer(c);change('查看客户 / 生成作战单',c.id,`优先级 ${opportunity(c).score}；${signals(c).map(s=>`${s.label}+${s.points}`).join('，')}；规则版本 ${[...new Set(state.rules.filter(r=>r.status==='active').map(r=>r.version))].join('、')}`)}
- function showSource(r:Rule){setSource(r);change('查看规则原文',r.id,`${r.source} · ${r.location} · ${r.version}`)}
- function toggleTask(id:string){const task=state.tasks.find(t=>t.id===id);if(!task)return;change(task.done?'重新打开任务':'完成跟进任务',task.customerId,task.title,s=>({...s,tasks:s.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)}))}
- function startVisit(c:Customer){setCustomer(null);setVisitCustomer(c)}
- function saveVisit(v:Visit){change('确认拜访纪要',v.customerId,`纪要 ${v.id}；${v.nextAction&&v.nextDate?'已建立 '+v.nextDate+' 跟进任务':'未约定跟进任务'}；保存 ${v.ruleSnapshot.length} 条规则快照`,s=>({...s,visits:[...s.visits,v],tasks:v.nextAction&&v.nextDate?[...s.tasks,{id:`T-${v.id}`,customerId:v.customerId,title:v.nextAction,due:v.nextDate,done:false,source:`拜访纪要 ${v.id}`}]:s.tasks}));setVisitCustomer(null);navigate('followups');toast.success('纪要已确认，跟进任务已更新')}
- useEffect(()=>{type MCP={registerTool:(t:unknown,o:{signal:AbortSignal})=>Promise<void>|void};const context=(document as Document&{modelContext?:MCP}).modelContext;if(!context?.registerTool)return;const controller=new AbortController();const tools=[{name:'list_customer_opportunities',title:'查看客户机会',description:'读取当前本机演示客户的排序与证据；无状态更改。',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute(input:unknown){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw Error('需要空对象');return ranked(snapshot.current.customers).map(c=>({id:c.id,...opportunity(c),evidence:signals(c)}))}},{name:'open_customer_brief',title:'打开访前作战单',description:'按脱敏编号打开作战单并记录一次查看；不确认建议或作出信贷决策。',inputSchema:{type:'object',properties:{customerId:{type:'string',pattern:'^KH-[0-9]{3,6}$'}},required:['customerId'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute(input:unknown){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>k!=='customerId'))throw Error('输入格式错误');const id=(input as {customerId:unknown}).customerId;if(typeof id!=='string')throw Error('客户编号缺失');const c=snapshot.current.customers.find(c=>c.id===id);if(!c)throw Error('客户不存在');setCustomer(c);setState(s=>({...s,audit:[...s.audit,{id:crypto.randomUUID(),time:new Date().toISOString(),actor:'陈经理（演示角色）',action:'打开作战单（代理）',target:id,detail:'通过网页工具打开作战单，等待人工确认'}]}));return {customerId:id,status:'opened',humanConfirmationRequired:true}}}];for(const tool of tools){try{Promise.resolve(context.registerTool(tool,{signal:controller.signal})).catch(()=>{})}catch{}}return ()=>controller.abort()},[]);
- const sorted=useMemo(()=>ranked(state.customers),[state.customers]);const filtered=sorted.filter(c=>(filter==='all'||opportunity(c).type===filter)&&(!query||`${c.id} ${c.industry} ${c.demand}`.toLowerCase().includes(query.toLowerCase())));const urgent=sorted.filter(c=>c.daysToMaturity!==null&&c.daysToMaturity>=0&&c.daysToMaturity<=45);const priority=sorted.filter(c=>opportunity(c).score>=57);const pending=state.rules.filter(r=>r.status==='pending');const today=state.tasks.filter(t=>!t.done&&t.due<=DEMO_DATE);const totalPages=Math.max(1,Math.ceil(filtered.length/10));
- return <SidebarProvider style={{'--sidebar-width':'224px'} as React.CSSProperties}><Toaster position="top-center" richColors/><Sidebar className="brand-sidebar"><SidebarHeader><button className="brand" onClick={()=>navigate('overview')} aria-label="银策编译器首页"><div className="brand-mark"><Landmark size={23}/></div><div><strong>银策编译器</strong><span>展业版 <i>BETA</i></span></div></button></SidebarHeader><SidebarContent><div className="nav-caption">工作空间</div><SidebarMenu>{nav.map(n=><SidebarMenuItem key={n.id}><NavigationButton item={n} active={view===n.id} count={pending.length} onNavigate={navigate}/></SidebarMenuItem>)}</SidebarMenu><div className="sidebar-note"><ShieldCheck size={21}/><strong>每一条建议，都有依据</strong><p>规则有出处，判断可解释，<br/>行动由你确认。</p><div className="privacy-line"><span/>本机模拟数据环境</div></div></SidebarContent><SidebarFooter><button className="sidebar-help" onClick={()=>setGuide(true)}><CircleHelp size={17}/>五分钟演示指南<ArrowUpRight size={14}/></button><div className="user"><span className="avatar">陈</span><div><strong>陈经理</strong><small>小微金融 · 演示角色</small></div></div></SidebarFooter></Sidebar><div className="app-main"><header className="topbar"><div className="breadcrumb"><SidebarTrigger className="mobile-toggle"/><span>工作空间</span><ChevronRight size={14}/><strong>{nav.find(n=>n.id===view)?.name}</strong></div><div className="top-actions"><button className="env-tag" onClick={()=>setGuide(true)}>本机演示</button><span className="top-divider"/><span className="date-label">演示基准日：2026 年 9 月 15 日</span><button className="notification-btn" onClick={()=>navigate('followups')} aria-label={`查看 ${today.length} 项今日待办`}><Bell size={18}/>{today.length>0&&<i/>}</button></div></header><main className="workspace">{storageIssue&&<div role="status" className="notice warning">浏览器数据无法读取或保存。当前仍可演示，请及时导出已确认纪要和操作日志。</div>}
- {(view==='overview'||view==='customers')&&<><PageTitle eyebrow={view==='overview'?'YOUR DAILY WORKSPACE':'CUSTOMER OPPORTUNITIES'} title={view==='overview'?'把机会，变成今天的行动':'找对客户，带着依据出发'} description={view==='overview'?'从制度到客户，从建议到跟进。今天的展业重点，已为你梳理。':'以脱敏业务特征发现服务线索，优先级与每条依据都可以展开查看。'}><button className="btn" onClick={()=>setImportOpen(true)}><Upload size={16}/>导入客户</button><button className="btn primary" onClick={()=>navigate('rules')}><ScanLine size={16}/>编译新政策</button></PageTitle>{view==='overview'&&<div className="stats-grid">{[{label:'优先联系客户',value:priority.length,unit:'位',caption:'演示优先级 ≥ 57 分',icon:Users,trend:`其中 ${sorted.filter(c=>opportunity(c).score>=85).length} 位高优先级`,to:'customers'},{label:'已梳理客户机会',value:state.customers.length,unit:'个',caption:`基于 ${state.customers.length} 位脱敏 / 模拟客户`,icon:Sparkles,trend:'每条机会均可追溯',to:'customers'},{label:'待完成跟进',value:state.tasks.filter(t=>!t.done).length,unit:'项',caption:'材料补充与需求核实',icon:ClipboardList,trend:`${today.length} 项今日或逾期待办`,to:'followups'},{label:'演示生效规则',value:state.rules.filter(r=>r.status==='active').length,unit:'条',caption:'经营流水类贷款 · 演示规则集',icon:ShieldCheck,trend:pending.length?`${pending.length} 项规则变更待确认`:'全部规则变更已处理',to:'rules'}].map((s,i)=><button className={'stat-card stat-'+i} key={s.label} onClick={()=>navigate(s.to)}><div className="stat-top"><span>{s.label}</span><s.icon size={18}/></div><div className="stat-value">{s.value}<span>{s.unit}</span></div><p>{s.caption}</p><div className="stat-bottom"><span className={i===3&&pending.length?'amber-text':''}>{i===3&&pending.length?<Clock3 size={13}/>:<Check size={13}/>} {s.trend}</span><ArrowUpRight size={14}/></div></button>)}</div>}<div className={view==='overview'?'dashboard-grid':'customer-full'}><section className="panel opportunity-panel"><div className="panel-title"><div><h2>{view==='overview'?'今日联系清单':'客户机会列表'} <span className="soft-tag">{filtered.length}</span></h2><p>按业务时效、已记录需求和联系间隔综合排序</p></div>{view==='overview'?<button className="text-btn" onClick={()=>navigate('customers')}>全部客户<ArrowRight size={15}/></button>:<div className="customer-search"><Search size={16}/><Input aria-label="搜索客户编号或行业" placeholder="搜索客户编号、行业" value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}}/></div>}</div><div className="list-toolbar"><Tabs value={filter} onValueChange={v=>{setFilter(v);setPage(1)}}><TabsList variant="line">{['all','续贷服务','材料补充','需求核实','客户维护'].map(t=><TabsTrigger key={t} value={t}>{t==='all'?'全部机会':t}</TabsTrigger>)}</TabsList></Tabs><button className="text-btn sorting-button" onClick={()=>{navigate('rules');toast.info('规则库的“展业排序策略”可查看全部权重')}}>优先级 ↓</button></div>{filtered.length?<CustomerTable customers={view==='overview'?filtered.slice(0,5):filtered.slice((page-1)*10,page*10)} onOpen={openCustomer}/>:<Empty title="没有找到匹配的客户" description="尝试更换行业关键词或选择“全部机会”。"/>}<div className="table-foot"><ShieldCheck size={14}/>仅使用脱敏编号及必要业务特征<span>优先级用于联系排序</span></div>{view==='customers'&&<div className="pagination"><span>共 {filtered.length} 位客户 · 第 {page} / {totalPages} 页</span><button className="btn" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>上一页</button><button className="btn" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>下一页</button></div>}</section>{view==='overview'&&<aside className="right-rail"><section className="insight-card"><div className="insight-label"><Sparkles size={16}/>今日展业提示<span>规则梳理</span></div><h3>续贷窗口，值得提前一步。</h3><p>{urgent.length?`有 ${urgent.length} 位客户的经营贷将在 45 天内到期。提前核实经营情况和资金安排，为后续服务留出准备时间。`:'目前没有 45 天内到期的客户。可继续核实已记录需求及长期未联系客户。'}</p><div className="insight-data"><span><b>{urgent.length}</b> 位客户</span><span><b>≤ 45</b> 天到期</span></div><button onClick={()=>setFilter('续贷服务')}>查看续贷机会<ArrowRight size={16}/></button></section><section className="panel today-panel"><div className="panel-title"><h2>今日待办</h2><span className="soft-tag">{today.length}</span></div>{today.slice(0,2).map((t,i)=><div className="todo" key={t.id}><Checkbox className="todo-checkbox" checked={t.done} onCheckedChange={()=>toggleTask(t.id)} aria-label={'完成 '+t.title}/><div><button className="todo-title" onClick={()=>{const c=state.customers.find(c=>c.id===t.customerId);if(c)startVisit(c)}}>{t.title}</button><p>{t.customerId} · {t.source.startsWith('V')?'拜访跟进':'客户跟进'}</p><span className="time-tag">{t.due===DEMO_DATE?'今天到期':t.due+' 已逾期'}</span></div></div>)}{!today.length&&<p className="today-empty">今日待办已完成，做得从容一点。</p>}<button className="text-btn todo-all" onClick={()=>navigate('followups')}>查看全部跟进<ArrowRight size={14}/></button></section></aside>}</div>{view==='overview'&&<section className="flow-panel"><button className="flow-heading" onClick={()=>setGuide(true)}><Activity size={20}/><div><h2>让展业有章可循</h2><p>查看五分钟演示指南</p></div></button>{[{n:'01',title:'制度编译',desc:'从原文到可执行规则',action:()=>navigate('rules')},{n:'02',title:'机会识别',desc:'用规则发现服务线索',action:()=>navigate('customers')},{n:'03',title:'访前作战单',desc:'带着依据，做好准备',action:()=>sorted[0]&&openCustomer(sorted[0])},{n:'04',title:'访后闭环',desc:'将沟通转成下一步行动',action:()=>navigate('followups')}].map((s,i)=><button className="flow-step" key={s.n} onClick={s.action}><span>{s.n}</span><div><strong>{s.title}</strong><p>{s.desc}</p></div>{i<3&&<ChevronRight size={16}/>}</button>)}</section>}</>}
- {view==='rules'&&<RulesView state={state} onSource={showSource} onActivate={id=>{try{const next=activateRule(state.rules,id);change('确认规则版本',id,'旧的同字段生效规则归档；客户条件核查使用新规则。',s=>({...s,rules:next}));toast.success('新版本已在演示环境生效，客户条件已重新核查')}catch(e){toast.error((e as Error).message)}}} onCompile={rules=>{change('编译候选规则',`${rules.length} 条候选`,rules.map(r=>`${r.source} · ${r.location}`).join('；'),s=>({...s,rules:[...s.rules,...rules]}));toast.success('候选规则已保存，等待人工确认')}}/>}
- {view==='followups'&&<FollowupView state={state} onToggle={toggleTask} onVisit={startVisit} onExport={()=>{downloadJson('银策-CRM待写入数据.json',{mode:'demo',writeStatus:'pending_external_integration',referenceDate:DEMO_DATE,visits:state.visits,tasks:state.tasks});change('导出 CRM 队列',`${state.visits.length} 条已确认纪要`,'导出 JSON；未写入银行生产系统');toast.success('CRM 演示数据已导出')}}/>}
- {view==='audit'&&<AuditView state={state} onSource={showSource} onExport={()=>{downloadJson('银策-演示审计记录.json',{mode:'device_local_demo',audit:state.audit,rules:state.rules});change('导出审计日志',`${state.audit.length} 条日志`,'导出本机演示操作记录及规则历史')}}/>}
- <footer className="workspace-footer"><span>银策编译器 · 展业版</span><span><ShieldCheck size={13}/>辅助展业，人工作出业务判断</span><button onClick={()=>setGuide(true)}>{ready?'记录保存在当前浏览器':'正在读取本机演示数据'}</button></footer></main></div>
- {customer&&<CustomerDetail key={customer.id} customer={customer} rules={state.rules} onClose={()=>setCustomer(null)} onSource={showSource} onVisit={startVisit} onConfirm={c=>change('确认访前建议',c.id,'已核对依据，仅用于演示沟通准备')}/>}
- <SourceDialog rule={source} onClose={()=>setSource(null)}/>
- {visitCustomer&&<VisitEditor key={visitCustomer.id} customer={visitCustomer} rules={state.rules} onClose={()=>setVisitCustomer(null)} onSave={saveVisit}/>}
- <ImportDialog open={importOpen} onClose={()=>setImportOpen(false)} onImport={customers=>{change('导入脱敏客户',`${customers.length} 位客户`,'白名单校验与脱敏确认后按编号合并；重新识别服务线索。',s=>{const map=new Map(s.customers.map(c=>[c.id,c]));customers.forEach(c=>map.set(c.id,c));return {...s,customers:[...map.values()]}});navigate('customers');toast.success(`已合并 ${customers.length} 位客户，机会已重新排序`)}}/>
- <Guide open={guide} onClose={()=>setGuide(false)} onStep={step=>{if(step<2)navigate('rules');else if(step===2)navigate('customers');else if(step===3){const c=state.customers.find(c=>c.id==='KH-001')||sorted[0];if(c)openCustomer(c)}else{const c=state.customers.find(c=>c.id==='KH-001')||sorted[0];if(c)startVisit(c)}}}/>
- </SidebarProvider>
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Landmark,
+  LayoutDashboard,
+  ScanLine,
+  Users,
+  ClipboardList,
+  ShieldCheck,
+  ChevronRight,
+  ArrowRight,
+  ArrowUpRight,
+  Upload,
+  Sparkles,
+  Clock3,
+  Bell,
+  Check,
+  Search,
+  TrendingUp,
+  Layers,
+  FileCheck,
+  LogOut,
+  RefreshCw,
+  LoaderCircle,
+  Database,
+} from "lucide-react";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Toaster, toast } from "sonner";
+import {
+  PageTitle,
+  CustomerTable,
+  Empty,
+  RulesView,
+  CustomerDetail,
+  ImportDialog,
+  AuditView,
+  Guide,
+  SourceDialog,
+} from "@/components/workbench-views";
+import {
+  AuthScreen,
+  Funnel,
+  TeamView,
+  WorkspaceView,
+  ReviewView,
+  NotificationCenter,
+  CustomerExtras,
+  CommunicationDialog,
+  FollowupBoard,
+} from "@/components/platform-views";
+import { usePlatform } from "@/hooks/use-platform";
+import {
+  type Customer,
+  type Rule,
+  type Visit,
+  ranked,
+  opportunity,
+  downloadJson,
+} from "@/lib/workbench";
+import { roleNames, type Brief } from "@/lib/platform";
+const nav = [
+  { id: "overview", name: "展业工作台", icon: LayoutDashboard },
+  { id: "customers", name: "客户机会", icon: Users },
+  { id: "rules", name: "政策规则库", icon: ScanLine },
+  { id: "followups", name: "访后跟进", icon: ClipboardList },
+  { id: "reviews", name: "审查与转派", icon: FileCheck },
+  { id: "team", name: "团队进度", icon: TrendingUp },
+  { id: "audit", name: "合规与审计", icon: ShieldCheck },
+  { id: "workspace", name: "工作空间", icon: Layers },
+];
+function NavButton({
+  item,
+  active,
+  count,
+  onNavigate,
+}: {
+  item: (typeof nav)[number];
+  active: boolean;
+  count: number;
+  onNavigate: (id: string) => void;
+}) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton
+      className="nav-item"
+      isActive={active}
+      onClick={() => {
+        onNavigate(item.id);
+        setOpenMobile(false);
+      }}
+    >
+      <item.icon size={18} />
+      <span>{item.name}</span>
+      {count > 0 && <b className="nav-count">{count}</b>}
+    </SidebarMenuButton>
+  );
+}
+export default function Home() {
+  const platform = usePlatform();
+  const { state, session, busy, loading, error, command } = platform;
+  const [view, setView] = useState("overview"),
+    [filter, setFilter] = useState("all"),
+    [query, setQuery] = useState(""),
+    [page, setPage] = useState(1),
+    [customerId, setCustomerId] = useState<string | null>(null),
+    [source, setSource] = useState<Rule | null>(null),
+    [record, setRecord] = useState<{
+      customerId: string;
+      visit?: Visit;
+    } | null>(null),
+    [importOpen, setImportOpen] = useState(false),
+    [guide, setGuide] = useState(false),
+    [notifications, setNotifications] = useState(false);
+  const snapshot = useRef({ state, command });
+  snapshot.current = { state, command };
+  const scopeKey = (state?.workspace.id || "") + ":" + (session?.user.id || "");
+  useEffect(() => {
+    setCustomerId(null);
+    setSource(null);
+    setRecord(null);
+    setImportOpen(false);
+    setNotifications(false);
+    setPage(1);
+    setQuery("");
+    setFilter("all");
+  }, [scopeKey]);
+  function navigate(id: string) {
+    setView(id);
+    setPage(1);
+    setQuery("");
+    setFilter("all");
+  }
+  async function openCustomer(c: Customer) {
+    setCustomerId(c.id);
+    try {
+      await command({
+        type: "audit.record",
+        action: "查看作战单",
+        target: c.id,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+  async function showSource(r: Rule) {
+    setSource(r);
+    try {
+      await command({
+        type: "audit.record",
+        action: "查看规则来源",
+        target: r.id,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+  useEffect(() => {
+    if (!state) return;
+    type MCP = {
+      registerTool: (
+        t: unknown,
+        o: { signal: AbortSignal },
+      ) => void | Promise<void>;
+    };
+    const mcp = (document as Document & { modelContext?: MCP }).modelContext;
+    if (!mcp) return;
+    const controller = new AbortController();
+    const tools = [
+      {
+        name: "list_customer_opportunities",
+        title: "查看当前工作空间客户机会",
+        description:
+          "只读取当前登录身份有权查看的客户和命中规则；不会跨工作空间查询。",
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: true, untrustedContentHint: true },
+        execute(input: unknown) {
+          if (
+            !input ||
+            typeof input !== "object" ||
+            Array.isArray(input) ||
+            Object.keys(input).length
+          )
+            throw Error("需要空对象");
+          return ranked(snapshot.current.state?.customers || []).map((c) => ({
+            id: c.id,
+            ...opportunity(c),
+            hits: c.ruleHits,
+          }));
+        },
+      },
+      {
+        name: "open_customer_brief",
+        title: "打开访前作战单",
+        description:
+          "打开当前可见客户的作战单并在后端记审计；不确认准备、不发消息、不审批。",
+        inputSchema: {
+          type: "object",
+          properties: {
+            customerId: { type: "string", pattern: "^KH-[0-9]{3,6}$" },
+          },
+          required: ["customerId"],
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: false, untrustedContentHint: true },
+        async execute(input: unknown) {
+          if (
+            !input ||
+            typeof input !== "object" ||
+            Array.isArray(input) ||
+            Object.keys(input).some((k) => k !== "customerId")
+          )
+            throw Error("参数无效");
+          const id = (input as { customerId: unknown }).customerId;
+          const c = snapshot.current.state?.customers.find((c) => c.id === id);
+          if (!c) throw Error("客户不存在或无权查看");
+          await snapshot.current.command({
+            type: "audit.record",
+            action: "查看作战单",
+            target: c.id,
+          });
+          setCustomerId(c.id);
+          return {
+            customerId: c.id,
+            status: "opened",
+            humanConfirmationRequired: true,
+          };
+        },
+      },
+    ];
+    for (const tool of tools)
+      try {
+        Promise.resolve(
+          mcp.registerTool(tool, { signal: controller.signal }),
+        ).catch(() => {});
+      } catch {}
+    return () => controller.abort();
+  }, [scopeKey]);
+  const sorted = useMemo(
+    () => ranked(state?.customers || []),
+    [state?.customers],
+  );
+  if (!session)
+    return (
+      <>
+        <Toaster position="top-center" richColors />
+        {loading ? (
+          <div className="boot-screen">
+            <Landmark />
+            <h2>银策 YINGCE</h2>
+            <p>正在连接你的工作空间…</p>
+          </div>
+        ) : (
+          <AuthScreen
+            authenticate={platform.authenticate}
+            request={platform.request}
+            error={error}
+          />
+        )}
+      </>
+    );
+  if (!state)
+    return (
+      <>
+        <Toaster position="top-center" richColors />
+        <div className="boot-screen">
+          <LoaderCircle className="spin" />
+          <h2>{loading ? "正在同步工作空间" : "工作空间暂时不可用"}</h2>
+          <p>{error || "读取成员权限、客户、规则与跟进记录"}</p>
+          {!loading && (
+            <div className="inline-actions">
+              <button className="btn" onClick={() => platform.refreshSession()}>
+                重新连接
+              </button>
+              <button className="text-btn" onClick={() => platform.logout()}>
+                退出登录
+              </button>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  const role = state.workspace.role,
+    canWrite = ["admin", "supervisor", "manager"].includes(role);
+  const pending = state.rules.filter((r) => r.status === "pending");
+  const today = state.tasks.filter(
+    (t) => !t.done && t.due <= state.referenceDate,
+  );
+  const unread = state.notifications.filter((n) => !n.read).length;
+  const customer = state.customers.find((c) => c.id === customerId) || null;
+  const recordCustomer = state.customers.find(
+    (c) => c.id === record?.customerId,
+  );
+  const filtered = sorted.filter(
+    (c) =>
+      (filter === "all" || opportunity(c).type === filter) &&
+      (!query ||
+        `${c.id} ${c.industry} ${c.demand}`
+          .toLowerCase()
+          .includes(query.toLowerCase())),
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / 10));
+  const urgent = sorted.filter(
+    (c) =>
+      c.daysToMaturity !== null &&
+      c.daysToMaturity >= 0 &&
+      c.daysToMaturity <= 45,
+  );
+  const prepared =
+    !!customer && state.briefs.some((b) => b.customerId === customer.id);
+  return (
+    <SidebarProvider
+      style={{ "--sidebar-width": "230px" } as React.CSSProperties}
+    >
+      <Toaster position="top-center" richColors />
+      <Sidebar className="brand-sidebar">
+        <SidebarHeader>
+          <button
+            className="brand"
+            onClick={() => navigate("overview")}
+            aria-label="银策编译器首页"
+          >
+            <div className="brand-mark">
+              <Landmark size={23} />
+            </div>
+            <div>
+              <strong>银策编译器</strong>
+              <span>
+                展业版 <i>3.0</i>
+              </span>
+            </div>
+          </button>
+        </SidebarHeader>
+        <SidebarContent>
+          <div className="workspace-picker">
+            <label htmlFor="workspace-select">当前工作空间</label>
+            <select
+              id="workspace-select"
+              value={state.workspace.id}
+              disabled={busy}
+              onChange={(e) => platform.choose(e.target.value)}
+            >
+              {session.workspaces.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <SidebarMenu>
+            {nav.map((n) => (
+              <SidebarMenuItem key={n.id}>
+                <NavButton
+                  item={n}
+                  active={view === n.id}
+                  count={
+                    n.id === "reviews"
+                      ? state.reviews.filter((r) => r.status === "pending")
+                          .length
+                      : 0
+                  }
+                  onNavigate={navigate}
+                />
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+          <div className="sidebar-note">
+            <ShieldCheck size={21} />
+            <strong>每一条建议，都有依据</strong>
+            <p>
+              数据按空间保存，
+              <br />
+              行动由团队确认。
+            </p>
+            <div className="privacy-line">
+              <span />
+              PostgreSQL 已连接
+            </div>
+          </div>
+        </SidebarContent>
+        <SidebarFooter>
+          <button className="sidebar-help" onClick={() => setGuide(true)}>
+            五分钟演示指南
+            <ArrowUpRight size={14} />
+          </button>
+          <div className="user">
+            <span className="avatar">{session.user.name[0]}</span>
+            <div>
+              <strong>{session.user.name}</strong>
+              <small>
+                {roleNames[role]}
+                {state.workspace.demo ? " · 演示身份" : ""}
+              </small>
+            </div>
+            <button
+              className="icon-btn"
+              aria-label="退出登录"
+              onClick={async () => {
+                try {
+                  await platform.logout();
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+      <div className="app-main">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <SidebarTrigger className="mobile-toggle" />
+            <span>{state.workspace.demo ? "独立体验" : "团队工作空间"}</span>
+            <ChevronRight size={14} />
+            <strong>{nav.find((n) => n.id === view)?.name}</strong>
+          </div>
+          <div className="top-actions">
+            {state.workspace.demo && (
+              <label className="demo-identity">
+                <span>演示身份</span>
+                <select
+                  aria-label="切换演示身份"
+                  value={session.user.id}
+                  disabled={busy}
+                  onChange={async (e) => {
+                    try {
+                      await platform.switchIdentity(e.target.value);
+                      toast.success("演示身份已切换，权限已重新校验");
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    }
+                  }}
+                >
+                  {state.members
+                    .filter((m) => m.active)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} · {roleNames[m.role]}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+            <span className="date-label">{state.referenceDate}</span>
+            <button
+              className="icon-btn"
+              aria-label="刷新数据库记录"
+              disabled={busy}
+              onClick={() => platform.refresh()}
+            >
+              <RefreshCw size={16} className={busy ? "spin" : ""} />
+            </button>
+            <button
+              className="notification-btn"
+              onClick={() => setNotifications(true)}
+              aria-label={`查看通知 ${unread} 条未读`}
+            >
+              <Bell size={19} />
+              {unread > 0 && (
+                <b className="notification-count">
+                  {unread > 9 ? "9+" : unread}
+                </b>
+              )}
+            </button>
+          </div>
+        </header>
+        <main className="workspace">
+          {error && (
+            <div className="notice warning" role="status">
+              {error}
+            </div>
+          )}
+          {state.workspace.demo && (
+            <div className="demo-banner">
+              <span>
+                <ShieldCheck size={14} />
+                独立演示空间 · 仅使用模拟资料
+              </span>
+              <span>24 小时后过期 · 切换右上角身份体验协作</span>
+            </div>
+          )}
+          {(view === "overview" || view === "customers") && (
+            <>
+              <PageTitle
+                eyebrow={
+                  view === "overview"
+                    ? "YOUR DAILY WORKSPACE"
+                    : "CUSTOMER OPPORTUNITIES"
+                }
+                title={
+                  view === "overview"
+                    ? "把机会，变成今天的行动"
+                    : "找对客户，带着依据出发"
+                }
+                description={
+                  view === "overview"
+                    ? "从规则命中到沟通跟进，在你的工作空间持续推进。"
+                    : "到期窗口、场景标签和联系优先级，让展业重点一眼可见。"
+                }
+              >
+                {canWrite && (
+                  <>
+                    <button className="btn" onClick={() => setImportOpen(true)}>
+                      <Upload size={16} />
+                      导入客户
+                    </button>
+                    <button
+                      className="btn primary"
+                      onClick={() => navigate("rules")}
+                    >
+                      <ScanLine size={16} />
+                      编译新政策
+                    </button>
+                  </>
+                )}
+              </PageTitle>
+              {view === "overview" && (
+                <>
+                  <div className="stats-grid">
+                    {[
+                      {
+                        label: "优先联系客户",
+                        value: sorted.filter((c) => opportunity(c).score >= 60)
+                          .length,
+                        unit: "位",
+                        caption: `${sorted.filter((c) => opportunity(c).score >= 85).length} 位高优先级 · 红色提示`,
+                        icon: Users,
+                        to: "customers",
+                      },
+                      {
+                        label: "临近到期窗口",
+                        value: urgent.length,
+                        unit: "位",
+                        caption: "45 天内到期 · 提前核实安排",
+                        icon: Clock3,
+                        to: "customers",
+                      },
+                      {
+                        label: "待完成跟进",
+                        value: state.tasks.filter((t) => !t.done).length,
+                        unit: "项",
+                        caption: `${today.length} 项今日或逾期待办`,
+                        icon: ClipboardList,
+                        to: "followups",
+                      },
+                      {
+                        label: "等待独立审查",
+                        value: state.reviews.filter(
+                          (r) => r.status === "pending",
+                        ).length,
+                        unit: "项",
+                        caption: "规则 · 纪要 · 客户转派",
+                        icon: FileCheck,
+                        to: "reviews",
+                      },
+                    ].map((s, i) => (
+                      <button
+                        className={"stat-card stat-" + i}
+                        key={s.label}
+                        onClick={() => navigate(s.to)}
+                      >
+                        <div className="stat-top">
+                          <span>{s.label}</span>
+                          <s.icon size={18} />
+                        </div>
+                        <div className="stat-value">
+                          {s.value}
+                          <span>{s.unit}</span>
+                        </div>
+                        <p>{s.caption}</p>
+                        <div className="stat-bottom">
+                          <span>
+                            <Check size={13} /> 数据库同步
+                          </span>
+                          <ArrowUpRight size={14} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <Funnel state={state} compact />
+                </>
+              )}
+              <div
+                className={
+                  view === "overview" ? "dashboard-grid" : "customer-full"
+                }
+              >
+                <section className="panel opportunity-panel">
+                  <div className="panel-title">
+                    <div>
+                      <h2>
+                        {view === "overview" ? "今日联系清单" : "客户机会列表"}{" "}
+                        <span className="soft-tag">{filtered.length}</span>
+                      </h2>
+                      <p>
+                        {role === "manager"
+                          ? "本人负责的客户"
+                          : "当前工作空间的客户"}{" "}
+                        · 联系颜色不代表授信风险
+                      </p>
+                    </div>
+                    {view === "overview" ? (
+                      <button
+                        className="text-btn"
+                        onClick={() => navigate("customers")}
+                      >
+                        全部客户
+                        <ArrowRight size={15} />
+                      </button>
+                    ) : (
+                      <div className="customer-search">
+                        <Search size={16} />
+                        <Input
+                          aria-label="搜索客户编号或行业"
+                          placeholder="搜索编号、行业、需求"
+                          value={query}
+                          onChange={(e) => {
+                            setQuery(e.target.value);
+                            setPage(1);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="list-toolbar">
+                    <Tabs
+                      value={filter}
+                      onValueChange={(v) => {
+                        setFilter(v);
+                        setPage(1);
+                      }}
+                    >
+                      <TabsList variant="line">
+                        {[
+                          "all",
+                          "续贷服务",
+                          "材料补充",
+                          "需求核实",
+                          "客户维护",
+                        ].map((t) => (
+                          <TabsTrigger key={t} value={t}>
+                            {t === "all" ? "全部机会" : t}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
+                    <span className="priority-legend">
+                      <i /> 高优先级
+                    </span>
+                  </div>
+                  {filtered.length ? (
+                    <CustomerTable
+                      customers={
+                        view === "overview"
+                          ? filtered.slice(0, 5)
+                          : filtered.slice((page - 1) * 10, page * 10)
+                      }
+                      onOpen={openCustomer}
+                    />
+                  ) : (
+                    <Empty
+                      title="没有匹配的客户"
+                      description="尝试调整关键词、场景筛选或工作空间。"
+                    />
+                  )}
+                  <div className="table-foot">
+                    <ShieldCheck size={14} />
+                    每条建议可查看命中规则<span>联系优先级 · 非审批概率</span>
+                  </div>
+                  {view === "customers" && (
+                    <div className="pagination">
+                      <span>
+                        共 {filtered.length} 位 · {page}/{totalPages}
+                      </span>
+                      <button
+                        className="btn"
+                        disabled={page <= 1}
+                        onClick={() => setPage(page - 1)}
+                      >
+                        上一页
+                      </button>
+                      <button
+                        className="btn"
+                        disabled={page >= totalPages}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  )}
+                </section>
+                {view === "overview" && (
+                  <aside className="right-rail">
+                    <section className="insight-card">
+                      <div className="insight-label">
+                        <Sparkles size={16} />
+                        今天，先抓住这个窗口
+                      </div>
+                      <h3>让到期提醒，提前变成准备。</h3>
+                      <p>
+                        {urgent.length
+                          ? `${urgent.length} 位客户进入续贷沟通窗口。先核实经营与资金安排，再记录需求、补齐材料。`
+                          : "当前没有进入 45 天到期窗口的客户，可优先查看已有需求和待补材料。"}
+                      </p>
+                      <div className="insight-data">
+                        <span>
+                          <b>{urgent.length}</b> 位客户
+                        </span>
+                        <span>
+                          <b>45</b> 天窗口
+                        </span>
+                      </div>
+                      <button onClick={() => setFilter("续贷服务")}>
+                        查看到期客户
+                        <ArrowRight size={16} />
+                      </button>
+                    </section>
+                    <section className="panel today-panel">
+                      <div className="panel-title">
+                        <h2>今日重点跟进</h2>
+                        <span className="soft-tag">{today.length}</span>
+                      </div>
+                      {today.slice(0, 3).map((t) => (
+                        <div className="todo" key={t.id}>
+                          <Clock3 size={17} />
+                          <div>
+                            <button
+                              className="todo-title"
+                              onClick={() => {
+                                const c = state.customers.find(
+                                  (c) => c.id === t.customerId,
+                                );
+                                if (c) void openCustomer(c);
+                              }}
+                            >
+                              {t.title}
+                            </button>
+                            <p>
+                              {t.customerId} · {t.assigneeName}
+                            </p>
+                            <span
+                              className={
+                                "deadline-tag " +
+                                (t.due < state.referenceDate ? "overdue" : "")
+                              }
+                            >
+                              {t.due === state.referenceDate
+                                ? "今天到期"
+                                : `${t.due} 已逾期`}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {!today.length && (
+                        <p className="today-empty">今天没有到期任务。</p>
+                      )}
+                      <button
+                        className="text-btn todo-all"
+                        onClick={() => navigate("followups")}
+                      >
+                        查看全部跟进
+                        <ArrowRight size={14} />
+                      </button>
+                    </section>
+                  </aside>
+                )}
+              </div>
+            </>
+          )}
+          {view === "rules" && (
+            <RulesView
+              state={state}
+              onSource={showSource}
+              onActivate={async (id) => {
+                const review = state.reviews.find(
+                  (r) =>
+                    r.kind === "rule" &&
+                    r.targetId === id &&
+                    r.status === "pending",
+                );
+                if (review) {
+                  navigate("reviews");
+                  toast.info("该规则已提交，可在审查队列查看");
+                  return;
+                }
+                try {
+                  await command({ type: "rule.submit", ruleId: id });
+                  toast.success("规则已提交独立审查");
+                  navigate("reviews");
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+              onCompile={async (rules) => {
+                try {
+                  await command({
+                    type: "rule.compile",
+                    text: rules[0]?.documentText || "",
+                    name: rules[0]?.source || "导入制度",
+                  });
+                  toast.success("后端已编译并保存候选规则");
+                  return true;
+                } catch (e) {
+                  toast.error((e as Error).message);
+                  return false;
+                }
+              }}
+            />
+          )}
+          {view === "followups" && (
+            <FollowupBoard
+              state={state}
+              command={command}
+              busy={busy}
+              onOpen={openCustomer}
+              onRecord={(c, v) => setRecord({ customerId: c.id, visit: v })}
+            />
+          )}
+          {view === "reviews" && (
+            <ReviewView
+              state={state}
+              session={session}
+              command={command}
+              busy={busy}
+            />
+          )}
+          {view === "team" && (
+            <TeamView state={state} userId={session.user.id} />
+          )}
+          {view === "workspace" && (
+            <WorkspaceView
+              state={state}
+              command={command}
+              busy={busy}
+              createWorkspace={async (name) => {
+                const w = await platform.request<{ id: string }>(
+                  "/workspaces",
+                  { name },
+                );
+                await platform.refreshSession(w.id);
+              }}
+            />
+          )}
+          {view === "audit" && (
+            <AuditView
+              state={state}
+              onSource={showSource}
+              onExport={async () => {
+                try {
+                  await command({
+                    type: "audit.record",
+                    action: "导出审计",
+                    target: "当前空间可见审计记录",
+                  });
+                  downloadJson("银策-工作空间审计.json", {
+                    workspace: state.workspace.name,
+                    audit: state.audit,
+                    rules: state.rules,
+                  });
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+            />
+          )}
+          <footer className="workspace-footer">
+            <span>银策 YINGCE · 让每一步展业可解释、可追踪</span>
+            <span>
+              <Database size={13} />{" "}
+              {busy ? "正在保存…" : "已连接工作空间数据库"}
+            </span>
+          </footer>
+        </main>
+      </div>
+      {customer && (
+        <CustomerDetail
+          key={scopeKey + customer.id}
+          customer={customer}
+          rules={state.rules}
+          referenceDate={state.referenceDate}
+          prepared={prepared}
+          busy={busy}
+          canWrite={canWrite}
+          onClose={() => setCustomerId(null)}
+          onSource={showSource}
+          onVisit={(c) => {
+            setCustomerId(null);
+            setRecord({ customerId: c.id });
+          }}
+          onConfirm={async (c) => {
+            await command<Brief>({
+              type: "brief.confirm",
+              customerId: c.id,
+              checklist: [
+                "已核对命中规则与客户信息",
+                "已准备需求核实问题与材料清单",
+                "已核对沟通边界",
+              ],
+              ack: true,
+            });
+            toast.success("访前准备与规则快照已保存");
+          }}
+        >
+          <CustomerExtras
+            customer={customer}
+            state={state}
+            command={command}
+            busy={busy}
+          />
+        </CustomerDetail>
+      )}
+      {recordCustomer && record && (
+        <CommunicationDialog
+          key={scopeKey + recordCustomer.id + (record.visit?.id || "new")}
+          customer={recordCustomer}
+          state={state}
+          command={command}
+          busy={busy}
+          onClose={() => setRecord(null)}
+          existingVisit={record.visit}
+        />
+      )}
+      <SourceDialog rule={source} onClose={() => setSource(null)} />
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={async (customers) => {
+          try {
+            const clean = customers.map(({ origin, ...c }) => c);
+            await command({ type: "customer.import", customers: clean });
+            toast.success("客户已保存到当前工作空间");
+            navigate("customers");
+            return true;
+          } catch (e) {
+            toast.error((e as Error).message);
+            return false;
+          }
+        }}
+      />
+      <NotificationCenter
+        state={state}
+        open={notifications}
+        onClose={() => setNotifications(false)}
+        command={command}
+        onNavigate={navigate}
+      />
+      <Guide
+        open={guide}
+        onClose={() => setGuide(false)}
+        onStep={(step) => {
+          if (step < 2) navigate("rules");
+          else if (step === 2) navigate("customers");
+          else if (step === 3 && sorted[0]) void openCustomer(sorted[0]);
+          else navigate("followups");
+        }}
+      />
+    </SidebarProvider>
+  );
 }

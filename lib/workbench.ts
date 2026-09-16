@@ -1,6 +1,12 @@
 export const DEMO_DATE = "2026-09-15";
 export const PRODUCT = "经营流水类贷款（产品名称待核实）";
 export type Customer = {
+  taxGrade?: "A" | "B" | "C" | "D" | "M" | null;
+  taxCompliant?: boolean | null;
+  procurementAward?: boolean | null;
+  legalEntity?: boolean | null;
+  hasIP?: boolean | null;
+  techCommercialized?: boolean | null;
   ownerId?: string;
   ownerName?: string;
   stage?: number;
@@ -29,6 +35,7 @@ export type Customer = {
   origin: string;
 };
 export type Rule = {
+  productId?: string;
   id: string;
   title: string;
   field:
@@ -39,9 +46,16 @@ export type Rule = {
     | "stable"
     | "creditClear"
     | "amlClear"
+    | "taxGrade"
+    | "taxCompliant"
+    | "procurementAward"
+    | "legalEntity"
+    | "hasIP"
+    | "techCommercialized"
+    | "operatingOrExperienceYears"
     | "manual";
-  operator: "gte" | "eq" | "review";
-  value: number | boolean | null;
+  operator: "gte" | "eq" | "in" | "review";
+  value: number | boolean | string[] | null;
   excerpt: string;
   source: string;
   location: string;
@@ -418,8 +432,24 @@ export function evaluateRule(
   r: Rule,
 ): "pass" | "fail" | "unknown" {
   if (r.status !== "active" || r.field === "manual") return "unknown";
+  if (r.operator === "review") return "unknown";
+  if (r.field === "operatingOrExperienceYears") {
+    const values = [c.operatingYears, c.experienceYears];
+    if (typeof r.value !== "number") return "unknown";
+    if (values.some((v) => typeof v === "number" && v >= (r.value as number)))
+      return "pass";
+    return values.some((v) => v === null || v === undefined)
+      ? "unknown"
+      : "fail";
+  }
   const v = c[r.field];
   if (v === null || v === undefined) return "unknown";
+  if (r.operator === "in")
+    return Array.isArray(r.value) && typeof v === "string"
+      ? r.value.includes(v)
+        ? "pass"
+        : "fail"
+      : "unknown";
   if (r.operator === "gte")
     return typeof v === "number" && typeof r.value === "number"
       ? v >= r.value
@@ -437,7 +467,10 @@ export function activateRule(rules: Rule[], id: string): Rule[] {
   return rules.map((r) =>
     r.id === id
       ? { ...r, status: "active" }
-      : r.field === selected.field && r.status === "active"
+      : r.field === selected.field &&
+          (r.productId || "PRODUCT-CASHFLOW") ===
+            (selected.productId || "PRODUCT-CASHFLOW") &&
+          r.status === "active"
         ? { ...r, status: "archived" }
         : r,
   );
@@ -507,6 +540,12 @@ export function extractVisit(raw: string) {
   };
 }
 const allowed = [
+  "taxGrade",
+  "taxCompliant",
+  "procurementAward",
+  "legalEntity",
+  "hasIP",
+  "techCommercialized",
   "id",
   "industry",
   "products",
@@ -594,11 +633,23 @@ export function validateCustomers(value: unknown): Customer[] {
       "stable",
       "creditClear",
       "amlClear",
+      "taxCompliant",
+      "procurementAward",
+      "legalEntity",
+      "hasIP",
+      "techCommercialized",
     ] as const) {
       if (o[k] !== undefined && o[k] !== null && typeof o[k] !== "boolean")
         throw Error(`第 ${i + 1} 行 ${k} 需为 true、false 或 null`);
       c[k] = (o[k] ?? null) as boolean | null;
     }
+    if (
+      o.taxGrade !== undefined &&
+      o.taxGrade !== null &&
+      !["A", "B", "C", "D", "M"].includes(String(o.taxGrade))
+    )
+      throw Error(`第 ${i + 1} 行 taxGrade 需为 A/B/C/D/M 或 null`);
+    c.taxGrade = (o.taxGrade ?? null) as Customer["taxGrade"];
     for (const k of ["products", "missing"] as const) {
       if (
         o[k] !== undefined &&

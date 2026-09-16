@@ -101,3 +101,11 @@ nginx -t
 网关限制按真实入口 IP，覆盖客户端传入的 X-Real-IP。API 限流还按用户、空间、登录名检查；当前计数在单进程内存中，重启会清空，多副本部署应使用共享计数存储。通知在可见页面每 30 秒同步，待办到期提醒在空间读取时生成；没有后台短信／微信发送。
 
 参考：[PostgreSQL 行级安全](https://www.postgresql.org/docs/14/ddl-rowsecurity.html)、[node-postgres 事务](https://node-postgres.com/features/transactions)、[Nginx 请求限流](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html)。
+
+## 产品库迁移（2026-09-16）
+
+`server/migrate-products.ts` 使用 API 的数据库身份，在事务内逐工作空间迁移：补齐产品目录、为旧规则归属待核实产品、添加产品专属核查规则；仅为原始 mock 客户补齐缺失的模拟特征。不会覆盖既有客户字段或历史访前快照，重复运行不会新增重复规则。新工作空间在创建时自动执行同样的初始化。
+
+备份后，用新版 API release 的 Node 和环境文件运行迁移，再启动新版服务。迁移只处理非演示工作空间，不能恢复已关闭的演示登录。产品规则增加后，不应直接退回旧版无产品筛选的 API；需保留新版后端，或在停止写入后按完整备份恢复本项目数据库与匹配的旧应用版本。
+
+专项集成验收：在已初始化、具有 qa_admin / qa_manager / qa_reviewer 的独立 `yince_test` 库和本地 API 上执行 `node --env-file=<测试环境文件> --test tests/products.integration.test.ts`。测试会追加测试规则、访前快照与沟通记录，禁止指向生产库。

@@ -14,7 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "dev:vps": "next dev --webpack --hostname 127.0.0.1 --port 5173",
     "build:vps": "YINCE_BUILD_TARGET=vps next build --webpack",
-    "test": "node --test tests/workbench.test.ts tests/platform.test.ts",
+    "test": "node --test tests/workbench.test.ts tests/platform.test.ts tests/product-matching.test.ts",
     "typecheck": "tsc --noEmit",
     "test:api": "node --test tests/api.integration.test.ts",
     "dev:api": "node --env-file=.env.local server/app.ts"

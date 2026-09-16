@@ -58,6 +58,8 @@ export type RuleHit = {
   evidence: string;
 };
 export type Brief = {
+  productId?: string;
+  productName?: string;
   id: string;
   customerId: string;
   created: string;
@@ -120,6 +122,10 @@ export type Product = {
 };
 export type PlatformState = State & {
   products: Product[];
+  productMatches: Record<
+    string,
+    import("./product-matching.ts").ProductMatch[]
+  >;
   referenceDate: string;
   workspace: Workspace;
   members: Member[];

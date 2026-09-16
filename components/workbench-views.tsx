@@ -50,7 +50,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { priorityLevel, sceneTags } from "../lib/platform";
-import type { PlatformState } from "../lib/platform";
+import { ruleFact } from "@/lib/product-matching";
+import type { Product, PlatformState } from "../lib/platform";
 import {
   type State,
   type Rule,
@@ -200,9 +201,11 @@ export function Empty({
 }
 export function SourceDialog({
   rule,
+  productName = PRODUCT,
   onClose,
 }: {
   rule: Rule | null;
+  productName?: string;
   onClose: () => void;
 }) {
   return (
@@ -248,7 +251,7 @@ export function SourceDialog({
               </div>
               <div>
                 <dt>产品范围</dt>
-                <dd>{PRODUCT}</dd>
+                <dd>{productName}</dd>
               </div>
             </dl>
             <div className="code-rule">
@@ -267,7 +270,7 @@ export function SourceDialog({
               </p>
             )}
             <p className="muted-copy">
-              “演示生效”表示当前空间的模拟规则已启用，不代表该资料已被核实为银行现行制度。
+              规则启用仅表示用于本工作空间的基础核查，不代表资料已被核实为银行现行制度。
             </p>
           </>
         )}
@@ -275,27 +278,25 @@ export function SourceDialog({
     </Dialog>
   );
 }
-export function RulesView({
+export function ProductRules({
   state,
+  product,
+  canWrite,
   onSource,
   onActivate,
   onCompile,
 }: {
   state: State;
+  product: Product;
+  canWrite: boolean;
   onSource: (r: Rule) => void;
   onActivate: (id: string) => void;
   onCompile: (rules: Rule[]) => Promise<boolean>;
 }) {
-  const products = (state as Partial<PlatformState>).products || [];
-  const strategies = (state as Partial<PlatformState>).strategies || [];
-  const [tab, setTab] = useState("rules");
   const [compiler, setCompiler] = useState(false);
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [result, setResult] = useState<Rule[] | null>(null);
-  const [selected, setSelected] = useState<(typeof products)[number] | null>(
-    null,
-  );
   const [ack, setAck] = useState(false);
   const [activate, setActivate] = useState<Rule | null>(null);
   const [error, setError] = useState("");
@@ -310,32 +311,24 @@ export function RulesView({
   );
   return (
     <>
-      <PageTitle
-        eyebrow="POLICY COMPILER"
-        title="让制度，成为可执行的规则"
-        description="保留原文、版本与例外条件，每次变更经过人工确认。"
-      >
-        <button
-          className="btn primary"
-          onClick={() => {
-            setCompiler(true);
-            setResult(null);
-            setError("");
-          }}
-        >
-          <ScanLine size={16} />
-          编译新政策
-        </button>
-      </PageTitle>
-      <div className="notice info">
-        <ShieldCheck size={18} />
+      <div className="section-heading">
         <div>
-          <strong>当前为演示规则集</strong>
-          <p>
-            产品截图未注明名称、生效日期与完整制度版本。8
-            条初始规则仅供闭环演示；附件中的利率与额度均保留为待核实资料。
-          </p>
+          <h2>{product.name} · 政策规则</h2>
+          <p className="muted-copy">仅管理本产品的条件、来源与历史版本。</p>
         </div>
+        {canWrite && (
+          <button
+            className="btn primary"
+            onClick={() => {
+              setCompiler(true);
+              setResult(null);
+              setError("");
+            }}
+          >
+            <ScanLine size={16} />
+            关联新政策
+          </button>
+        )}
       </div>
       {pending.length > 0 && (
         <div className="conflict-banner">
@@ -351,6 +344,7 @@ export function RulesView({
           </div>
           <button
             className="btn warning"
+            disabled={!canWrite}
             onClick={() => {
               setActivate(pending[0]);
               setAck(false);
@@ -361,165 +355,80 @@ export function RulesView({
           </button>
         </div>
       )}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="section-tabs" variant="line">
-          <TabsTrigger value="rules">
-            规则与版本 <span>{state.rules.length}</span>
-          </TabsTrigger>
-          <TabsTrigger value="sources">
-            附件产品库 <span>5</span>
-          </TabsTrigger>
-          <TabsTrigger value="strategy">展业排序策略</TabsTrigger>
-        </TabsList>
-      </Tabs>
-      {tab === "rules" && (
-        <section className="rule-list">
-          {state.rules.map((r) => (
-            <article
-              className={
-                "panel rule-card " + (r.status === "archived" ? "archived" : "")
-              }
-              key={r.id}
-            >
-              <div className="rule-icon">
-                <FileText size={22} />
-              </div>
-              <div className="rule-body">
-                <div className="rule-heading">
-                  <h3>{r.title}</h3>
-                  <span
-                    className={
-                      "tag " +
-                      (r.status === "active"
-                        ? "teal"
-                        : r.status === "pending"
-                          ? "amber"
-                          : "gray")
-                    }
-                  >
-                    {r.status === "active"
-                      ? "演示生效"
+      <section className="rule-list">
+        {state.rules.map((r) => (
+          <article
+            className={
+              "panel rule-card " + (r.status === "archived" ? "archived" : "")
+            }
+            key={r.id}
+          >
+            <div className="rule-icon">
+              <FileText size={22} />
+            </div>
+            <div className="rule-body">
+              <div className="rule-heading">
+                <h3>{r.title}</h3>
+                <span
+                  className={
+                    "tag " +
+                    (r.status === "active"
+                      ? "teal"
                       : r.status === "pending"
-                        ? "待人工确认"
-                        : "历史版本"}
-                  </span>
-                  {r.synthetic && (
-                    <span className="tag amber">模拟 / 导入</span>
-                  )}
-                </div>
-                <p>
-                  {r.location} <span>·</span> {r.version} <span>·</span>{" "}
-                  {r.effective
-                    ? `演示生效日 ${r.effective}`
-                    : "正式生效日待核实"}
-                </p>
-                <code>
-                  {r.field}{" "}
-                  {r.operator === "gte" ? "≥" : r.operator === "eq" ? "=" : "→"}{" "}
-                  {String(r.value ?? "人工复核")}
-                </code>
+                        ? "amber"
+                        : "gray")
+                  }
+                >
+                  {r.status === "active"
+                    ? "用于基础核查"
+                    : r.status === "pending"
+                      ? "待人工确认"
+                      : "历史版本"}
+                </span>
+                {r.synthetic && <span className="tag amber">模拟 / 导入</span>}
               </div>
-              <div className="rule-actions">
-                <button className="text-btn" onClick={() => onSource(r)}>
-                  <Link2 size={14} />
-                  原文依据
-                </button>
-                {r.status === "pending" && (
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      setActivate(r);
-                      setAck(false);
-                    }}
-                  >
-                    提交审查
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
-        </section>
-      )}
-      {tab === "sources" && (
-        <>
-          <div className="notice plain">
-            <FileText size={18} />
-            <div>
-              <strong>九江银行服务民营企业、小微企业信贷产品</strong>
               <p>
-                来源：P020250723600413272167.et · Sheet1，第 3–7
-                行。原文件未提供制度生效日；联系人信息未纳入产品库。
+                {r.location} <span>·</span> {r.version} <span>·</span>{" "}
+                {r.effective ? `演示生效日 ${r.effective}` : "正式生效日待核实"}
               </p>
+              <code>
+                {r.field}{" "}
+                {r.operator === "gte"
+                  ? "≥"
+                  : r.operator === "eq"
+                    ? "="
+                    : r.operator === "in"
+                      ? "属于"
+                      : "→"}{" "}
+                {String(r.value ?? "人工复核")}
+              </code>
             </div>
-          </div>
-          <div className="product-grid">
-            {products.map((p) => (
-              <button
-                className="panel product-card"
-                onClick={() => setSelected(p)}
-                key={p.name}
-              >
-                <div className="product-card-top">
-                  <span className="file-icon">
-                    <FileText size={24} />
-                  </span>
-                  <span className="tag gray">待业务核实</span>
-                </div>
-                <h3>{p.name}</h3>
-                <p>{p.description}</p>
-                <div className="product-card-footer">
-                  Sheet1 · C{p.row}:L{p.row}
-                  <ArrowUpRight size={17} />
-                </div>
+            <div className="rule-actions">
+              <button className="text-btn" onClick={() => onSource(r)}>
+                <Link2 size={14} />
+                原文依据
               </button>
-            ))}
-          </div>
-          <div className="notice plain">
-            <Info size={18} />
-            <div>
-              <strong>参考材料各有用途</strong>
-              <p>
-                截图 1 用于了解行员展业场景；截图 2 是 2023 年“九派贷 /
-                九派通”新闻，不能直接等同于表内“九融贷”的准入制度。截图 3
-                是本演示的规则提取来源。
-              </p>
+              {r.status === "pending" && canWrite && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setActivate(r);
+                    setAck(false);
+                  }}
+                >
+                  提交审查
+                </button>
+              )}
             </div>
-          </div>
-        </>
-      )}
-      {tab === "strategy" && (
-        <section className="panel strategy-panel">
-          <h2>优先级怎么算</h2>
-          <p>
-            用于安排联系顺序，与授信、额度及审批概率无关。所有权重均为演示设置。
-          </p>
-          <div className="strategy-equation">
-            优先级 = min（100，各项联系权重之和）
-          </div>
-          {strategies.map((s) => (
-            <div className="strategy-row" key={s.id}>
-              <code>{s.id}</code>
-              <div>
-                <strong>{s.title}</strong>
-                <p>{s.condition}</p>
-              </div>
-              <b>+{s.points}</b>
-            </div>
-          ))}
-          <div className="notice info">
-            <Info size={17} />
-            <p>
-              未知字段不加分；负数到期天数不触发续贷窗口。经营年限等产品规则只用于访前条件核查，不把“不满足已知条件”当成拒贷结论。
-            </p>
-          </div>
-        </section>
-      )}
+          </article>
+        ))}
+      </section>
       <Dialog open={compiler} onOpenChange={setCompiler}>
         <DialogContent className="wide-dialog">
           <DialogHeader>
             <DialogTitle>编译一份新政策</DialogTitle>
             <DialogDescription>
-              当前范围为截图 3 的经营流水类贷款。模板仅解析明确“满 /
+              当前产品：{product.name}。模板仅解析明确“满 /
               不少于”的年限条件；候选均待确认。
             </DialogDescription>
           </DialogHeader>
@@ -643,7 +552,7 @@ export function RulesView({
           <DialogHeader>
             <DialogTitle>确认适用规则版本</DialogTitle>
             <DialogDescription>
-              仅影响当前工作空间的规则集。历史访前与访后快照保持原版本。
+              仅影响当前工作空间的本产品规则。历史访前与访后快照保持原版本。
             </DialogDescription>
           </DialogHeader>
           {activate && (
@@ -714,45 +623,12 @@ export function RulesView({
           )}
         </DialogContent>
       </Dialog>
-      <Dialog open={!!selected} onOpenChange={(v) => !v && setSelected(null)}>
-        <DialogContent className="wide-dialog product-detail">
-          <DialogHeader>
-            <DialogTitle>{selected?.name} · 原始产品资料</DialogTitle>
-            <DialogDescription>
-              附件历史资料，未经现行有效性核实，不作为直接对客报价或承诺。
-            </DialogDescription>
-          </DialogHeader>
-          {selected && (
-            <>
-              {[
-                { key: "客户对象", value: selected.audience, col: "E" },
-                { key: "金额范围", value: selected.amount, col: "G" },
-                { key: "申请条件", value: selected.conditions, col: "H" },
-                { key: "期限", value: selected.term, col: "J" },
-                { key: "利率（原文）", value: selected.rate, col: "K" },
-                { key: "办理流程", value: selected.process, col: "I" },
-                { key: "增信方式", value: selected.guarantee, col: "L" },
-              ].map((s) => (
-                <section className="product-section" key={s.key}>
-                  <h3>
-                    {s.key}
-                    <small>
-                      Sheet1!{s.col}
-                      {selected.row}
-                    </small>
-                  </h3>
-                  <p>{s.value}</p>
-                </section>
-              ))}
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
 export function CustomerDetail({
   customer,
+  productName = PRODUCT,
   rules,
   onClose,
   onSource,
@@ -765,6 +641,7 @@ export function CustomerDetail({
   referenceDate = DEMO_DATE,
 }: {
   customer: Customer | null;
+  productName?: string;
   rules: Rule[];
   onClose: () => void;
   onSource: (r: Rule) => void;
@@ -860,7 +737,7 @@ export function CustomerDetail({
             </p>
           </section>
           <section className="brief-section">
-            <h3>当前业务与可了解的服务</h3>
+            <h3>本次匹配产品：{productName}</h3>
             <div className="chips">
               {c.products.length ? (
                 c.products.map((p) => (
@@ -873,11 +750,8 @@ export function CustomerDetail({
               )}
             </div>
             <p>
-              {o.type === "续贷服务"
-                ? "先讨论现有贷款到期安排与续贷服务；如客户存在新增经营资金需求，再核实经营流水类贷款适用情况。"
-                : o.type === "材料补充"
-                  ? "跟进已表达的经营融资需求，逐项核对待补信息；产品匹配需在资料补齐后重新确认。"
-                  : "先核实真实经营需求；经营流水类贷款仅作为进一步了解的方向。"}
+              围绕{productName}
+              核实客户需求与适用条件。以下只展示本产品的规则，资料补齐后需重新匹配。
             </p>
           </section>
           <section className="brief-section">
@@ -888,7 +762,7 @@ export function CustomerDetail({
               </span>
             </div>
             <p className="micro-copy">
-              产品名称与制度有效性待核实；以下是演示核查，不能据此作出授信决定。
+              制度现行有效性与适用例外待核实；基础条件匹配不能据此作出授信决定。
             </p>
             {active.map((r) => {
               const status = evaluateRule(c, r);
@@ -912,15 +786,7 @@ export function CustomerDetail({
                           ? "暂未满足 · 需人工复核"
                           : "信息缺失 / 需人工核实"}{" "}
                       · {r.version} · 数据值：
-                      {r.field === "manual"
-                        ? "需人工核实"
-                        : c[r.field] === null
-                          ? "未提供"
-                          : typeof c[r.field] === "boolean"
-                            ? c[r.field]
-                              ? "是"
-                              : "否"
-                            : String(c[r.field]) + " 年"}
+                      {ruleFact(c, r)}
                     </small>
                   </div>
                   <button className="text-btn" onClick={() => onSource(r)}>
@@ -938,6 +804,13 @@ export function CustomerDetail({
                   ? `现有贷款${c.daysToMaturity >= 0 ? `将在 ${c.daysToMaturity} 天后到期` : "已过到期日"}，目前有哪些还款及资金安排？`
                   : "近期是否有采购、备货或日常经营周转需求？"}
               </li>
+              {active
+                .filter((r) => evaluateRule(c, r) !== "pass")
+                .map((r) => (
+                  <li key={r.id}>
+                    需核实：{r.title}（{ruleFact(c, r)}）
+                  </li>
+                ))}
               <li>资金的具体用途、预计金额和使用时间是什么？</li>
               <li>近半年经营与结算情况是否变化，能否提供相应材料？</li>
               {c.operatingYears === null && (
@@ -1323,20 +1196,20 @@ export function Guide({
         <div className="guide-steps">
           {[
             {
-              title: "查看制度与来源",
-              text: "打开政策规则库，点击“原文依据”；附件产品库可查看 5 款产品的单元格出处。",
+              title: "选择产品与来源",
+              text: "打开产品库，选择一款产品，再查看对应政策规则与原始资料。",
             },
             {
               title: "处理一个版本冲突",
               text: "将经营年限从 1 年调整到 2 年的模拟通知，提交后由其他审查人员确认启用。",
             },
             {
-              title: "识别客户机会",
-              text: "查看 20 位模拟客户的动态排序，也可导入 JSON 脱敏客户。",
+              title: "从产品匹配客户",
+              text: "在产品的匹配客户中查看基础条件、缺失信息与命中依据。",
             },
             {
               title: "生成访前作战单",
-              text: "打开 KH-001，查看联系理由、权重、基础条件、缺失信息与沟通问题。",
+              text: "从产品内选择客户，生成该产品的作战单并保存规则快照。",
             },
             {
               title: "记录拜访并跟进",

@@ -3721,3 +3721,10 @@ h2 {
     display: none;
   }
 }
+
+/* Product-first catalogue and explainable matching. */
+.product-search{display:flex;align-items:center;gap:10px;max-width:420px;margin:18px 0;color:#6b817a}
+.product-counts{display:flex;flex-wrap:wrap;gap:18px;margin:18px 0;color:#6f817c;font-size:12px}.product-counts b{font-size:21px;color:#247a6b;margin-right:4px}
+.product-back{margin-bottom:20px}.product-match-summary{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0}.product-match-summary button{padding:12px 18px;background:#fff;border:1px solid #e0e9e5;border-radius:10px;color:#62746c}.product-match-summary button.selected{background:#e9f5ef;border-color:#408d7e;color:#1c6c5d}.product-match-summary b{margin-left:12px}
+.product-match-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0}.product-match{padding:24px;min-width:0}.product-match-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.product-match-head h3{font-size:17px;font-weight:650}.product-match-head h3 span{font-size:13px;color:#77897f;font-weight:400;margin-left:12px}.product-match-head p{font-size:11px;color:#8b9992;margin:6px 0 16px}.product-match-facts{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#77877e;margin-bottom:16px}.product-match-facts b{color:#254f43;margin-left:4px}.product-match summary{font-size:13px;color:#337d69;cursor:pointer;margin:14px 0}.product-match>.btn{margin-top:14px}.product-checks>div{display:flex;align-items:flex-start;gap:9px;padding:12px 0;border-top:1px solid #e8eeea;font-size:12px}.product-checks>div>div{flex:1;min-width:0}.product-checks p{font-size:11px;color:#7b8b83;line-height:1.6;margin-top:5px}.product-checks .text-btn{font-size:11px;white-space:nowrap}.product-original{padding:28px}.product-empty{padding:36px;text-align:center;color:#7b8b83}
+@media(max-width:1050px){.product-match-list{grid-template-columns:1fr}}@media(max-width:600px){.product-match{padding:17px}.product-match-head{flex-wrap:wrap}.product-match-summary button{padding:9px 11px}.product-original{padding:18px}}

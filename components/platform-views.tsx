@@ -1150,6 +1150,7 @@ const outcomeLabel = {
   scheduled: "已预约",
 };
 export function CommunicationDialog({
+  productId,
   customer: c,
   state,
   command,
@@ -1163,8 +1164,15 @@ export function CommunicationDialog({
   busy: boolean;
   onClose: () => void;
   existingVisit?: Visit;
+  productId?: string;
 }) {
-  const latest = state.briefs.filter((b) => b.customerId === c.id).slice(-1)[0];
+  const latest = state.briefs
+    .filter(
+      (b) =>
+        b.customerId === c.id &&
+        (!productId || (b.productId || "PRODUCT-CASHFLOW") === productId),
+    )
+    .slice(-1)[0];
   const brief =
     state.briefs.find((b) => b.id === existingVisit?.briefId) || latest;
   const [channel, setChannel] = useState<Communication["channel"]>(
@@ -1193,7 +1201,8 @@ export function CommunicationDialog({
         <DialogHeader>
           <DialogTitle>{c.id} · 沟通与访后归纳</DialogTitle>
           <DialogDescription>
-            关联访前快照 {brief?.id.slice(0, 8) || "未准备"}
+            {brief?.productName || "经营流水类贷款"} · 关联访前快照{" "}
+            {brief?.id.slice(0, 8) || "未准备"}
             ，保留原始记录并推进后续任务。
           </DialogDescription>
         </DialogHeader>

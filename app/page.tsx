@@ -43,7 +43,6 @@ import {
   PageTitle,
   CustomerTable,
   Empty,
-  RulesView,
   CustomerDetail,
   ImportDialog,
   AuditView,
@@ -70,11 +69,13 @@ import {
   opportunity,
   downloadJson,
 } from "@/lib/workbench";
+import { ProductLibrary } from "@/components/product-library";
+import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
 const nav = [
   { id: "overview", name: "展业工作台", icon: LayoutDashboard },
   { id: "customers", name: "客户机会", icon: Users },
-  { id: "rules", name: "政策规则库", icon: ScanLine },
+  { id: "products", name: "产品库", icon: ScanLine },
   { id: "followups", name: "访后跟进", icon: ClipboardList },
   { id: "reviews", name: "审查与转派", icon: FileCheck },
   { id: "team", name: "团队进度", icon: TrendingUp },
@@ -115,10 +116,12 @@ export default function Home() {
     [filter, setFilter] = useState("all"),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(1),
+    [briefProductId, setBriefProductId] = useState(LEGACY_PRODUCT_ID),
     [customerId, setCustomerId] = useState<string | null>(null),
     [source, setSource] = useState<Rule | null>(null),
     [record, setRecord] = useState<{
       customerId: string;
+      productId?: string;
       visit?: Visit;
     } | null>(null),
     [importOpen, setImportOpen] = useState(false),
@@ -143,7 +146,8 @@ export default function Home() {
     setQuery("");
     setFilter("all");
   }
-  async function openCustomer(c: Customer) {
+  async function openCustomer(c: Customer, productId = LEGACY_PRODUCT_ID) {
+    setBriefProductId(productId);
     setCustomerId(c.id);
     try {
       await command({
@@ -235,6 +239,7 @@ export default function Home() {
             action: "查看作战单",
             target: c.id,
           });
+          setBriefProductId(LEGACY_PRODUCT_ID);
           setCustomerId(c.id);
           return {
             customerId: c.id,
@@ -323,7 +328,12 @@ export default function Home() {
       c.daysToMaturity <= 45,
   );
   const prepared =
-    !!customer && state.briefs.some((b) => b.customerId === customer.id);
+    !!customer &&
+    state.briefs.some(
+      (b) =>
+        b.customerId === customer.id &&
+        (b.productId || LEGACY_PRODUCT_ID) === briefProductId,
+    );
   return (
     <SidebarProvider
       style={{ "--sidebar-width": "230px" } as React.CSSProperties}
@@ -486,10 +496,10 @@ export default function Home() {
                     </button>
                     <button
                       className="btn primary"
-                      onClick={() => navigate("rules")}
+                      onClick={() => navigate("products")}
                     >
                       <ScanLine size={16} />
-                      编译新政策
+                      从产品匹配客户
                     </button>
                   </>
                 )}
@@ -747,9 +757,12 @@ export default function Home() {
               </div>
             </>
           )}
-          {view === "rules" && (
-            <RulesView
+          {view === "products" && (
+            <ProductLibrary
+              key={scopeKey}
               state={state}
+              canWrite={canWrite}
+              onOpenCustomer={openCustomer}
               onSource={showSource}
               onActivate={async (id) => {
                 const review = state.reviews.find(
@@ -771,10 +784,11 @@ export default function Home() {
                   toast.error((e as Error).message);
                 }
               }}
-              onCompile={async (rules) => {
+              onCompile={async (rules, productId) => {
                 try {
                   await command({
                     type: "rule.compile",
+                    productId,
                     text: rules[0]?.documentText || "",
                     name: rules[0]?.source || "导入制度",
                   });
@@ -854,9 +868,12 @@ export default function Home() {
       </div>
       {customer && (
         <CustomerDetail
-          key={scopeKey + customer.id}
+          key={scopeKey + customer.id + briefProductId}
           customer={customer}
-          rules={state.rules}
+          rules={state.rules.filter((r) => productIdOf(r) === briefProductId)}
+          productName={
+            state.products.find((p) => p.id === briefProductId)?.name
+          }
           referenceDate={state.referenceDate}
           prepared={prepared}
           busy={busy}
@@ -865,11 +882,12 @@ export default function Home() {
           onSource={showSource}
           onVisit={(c) => {
             setCustomerId(null);
-            setRecord({ customerId: c.id });
+            setRecord({ customerId: c.id, productId: briefProductId });
           }}
           onConfirm={async (c) => {
             await command<Brief>({
               type: "brief.confirm",
+              productId: briefProductId,
               customerId: c.id,
               checklist: [
                 "已核对命中规则与客户信息",
@@ -898,9 +916,17 @@ export default function Home() {
           busy={busy}
           onClose={() => setRecord(null)}
           existingVisit={record.visit}
+          productId={record.productId}
         />
       )}
-      <SourceDialog rule={source} onClose={() => setSource(null)} />
+      <SourceDialog
+        rule={source}
+        productName={
+          state.products.find((p) => p.id === (source && productIdOf(source)))
+            ?.name
+        }
+        onClose={() => setSource(null)}
+      />
       <ImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -928,8 +954,8 @@ export default function Home() {
         open={guide}
         onClose={() => setGuide(false)}
         onStep={(step) => {
-          if (step < 2) navigate("rules");
-          else if (step === 2) navigate("customers");
+          if (step < 2) navigate("products");
+          else if (step === 2) navigate("products");
           else if (step === 3 && sorted[0]) void openCustomer(sorted[0]);
           else navigate("followups");
         }}

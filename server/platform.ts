@@ -1,4 +1,9 @@
-import products from "../data/products.json" with { type: "json" };
+import { ensureProductCatalog } from "./product-catalog.ts";
+import {
+  LEGACY_PRODUCT_ID,
+  productIdOf,
+  matchProduct,
+} from "../lib/product-matching.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -74,6 +79,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("rule.compile"),
+      productId: text(100).default(LEGACY_PRODUCT_ID),
       text: text(30000).min(1),
       name: text(150),
     })
@@ -82,6 +88,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("brief.confirm"),
+      productId: text(100).default(LEGACY_PRODUCT_ID),
       customerId: text(30),
       checklist: z.array(text(150)).min(1).max(20),
       ack: z.literal(true),
@@ -337,8 +344,20 @@ export async function readState(ctx: Context): Promise<PlatformState> {
       (!!r.customerId && visibleIds.has(r.customerId)),
   );
   const audits = await rows<Audit & { actorId?: string }>(ctx.tx, "audit", ws);
+  const products = await rows<Product>(ctx.tx, "products", ws);
+  const rules = await rows<Rule>(ctx.tx, "rules", ws);
   return {
-    products: await rows<Product>(ctx.tx, "products", ws),
+    products,
+    productMatches: Object.fromEntries(
+      products.map((p) => [
+        p.id,
+        matchProduct(
+          p.id,
+          visible.map((c) => currentCustomer(c, strategies)),
+          rules,
+        ),
+      ]),
+    ),
     schema: 1,
     referenceDate: chinaDate(),
     workspace: ctx.ws,
@@ -358,7 +377,7 @@ export async function readState(ctx: Context): Promise<PlatformState> {
       }
       return out;
     }),
-    rules: await rows<Rule>(ctx.tx, "rules", ws),
+    rules,
     tasks: tasks.map((t) => ({
       ...t,
       assigneeName: team.find((m) => m.id === t.assigneeId)?.name || "未分配",
@@ -417,13 +436,12 @@ export async function seedWorkspace(
       origin: `PostgreSQL 模拟数据 · ${day}`,
     } as Customer);
   }
-  for (const p of products)
-    await put(tx, "products", ws, { ...p, id: `PRODUCT-${p.row}` });
   for (const r of initialRules)
     await put(tx, "rules", ws, {
       ...r,
       effective: r.synthetic ? day : r.effective,
     });
+  await ensureProductCatalog(tx, ws);
   for (const s of initialStrategies) await put(tx, "strategies", ws, s);
   const taskIds = ["KH-001", "KH-008", "KH-003", "KH-007", "KH-012", "KH-016"];
   for (const [id, i] of taskIds.map((id, i) => [id, i] as const)) {
@@ -534,6 +552,8 @@ export async function execute(ctx: Context, input: unknown) {
     }
     case "rule.compile": {
       allowed(ctx, ["admin", "supervisor", "manager"]);
+      const product = await get<Product>(tx, "products", ws, command.productId);
+      demand(product, 404, "产品不存在于当前工作空间");
       const rules = compilePolicy(command.text, command.name);
       demand(rules.length, 400, "没有可安全提取的简单年限规则");
       demand(
@@ -545,13 +565,14 @@ export async function execute(ctx: Context, input: unknown) {
         await put(tx, "rules", ws, {
           ...r,
           id: randomUUID(),
+          productId: command.productId,
           effective: chinaDate(),
         });
       await audit(
         ctx,
         "编译候选规则",
         `${rules.length} 条`,
-        "候选已入库，需提交审查后生效。",
+        `产品 ${product.name}（${product.id}）；候选已入库，需提交审查后生效。`,
       );
       break;
     }
@@ -593,10 +614,14 @@ export async function execute(ctx: Context, input: unknown) {
         c,
         await rows<Strategy>(tx, "strategies", ws),
       );
+      const product = await get<Product>(tx, "products", ws, command.productId);
+      demand(product, 404, "产品不存在于当前工作空间");
       const rules = (await rows<Rule>(tx, "rules", ws)).filter(
-        (r) => r.status === "active",
+        (r) => r.status === "active" && productIdOf(r) === command.productId,
       );
       const b: Brief = {
+        productId: product.id,
+        productName: product.name,
         id: randomUUID(),
         customerId: c.id,
         created: now(),
@@ -870,7 +895,9 @@ export async function execute(ctx: Context, input: unknown) {
           for (const rule of all)
             if (
               rule.id === chosen.id ||
-              (rule.status === "active" && rule.field === chosen.field)
+              (rule.status === "active" &&
+                rule.field === chosen.field &&
+                productIdOf(rule) === productIdOf(chosen))
             )
               await put(tx, "rules", ws, {
                 ...rule,

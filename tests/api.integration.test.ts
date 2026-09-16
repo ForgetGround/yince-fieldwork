@@ -87,7 +87,7 @@ test("真实 PostgreSQL：登录、跨空间权限、双人审查、沟通闭环
     assert.equal(again.status, 409);
     state = await admin.state();
     assert.equal(state.customers.length, 20);
-    assert.equal(state.products.length, 5);
+    assert.equal(state.products.length, 6);
     assert.equal(state.strategies.length, 6);
     assert.equal(
       state.customers
@@ -302,7 +302,10 @@ test("真实 PostgreSQL：登录、跨空间权限、双人审查、沟通闭环
     );
     assert.equal(
       state.rules.find(
-        (r: any) => r.field === "operatingYears" && r.status === "active",
+        (r: any) =>
+          r.field === "operatingYears" &&
+          r.status === "active" &&
+          r.productId === "PRODUCT-CASHFLOW",
       ).value,
       2,
     );

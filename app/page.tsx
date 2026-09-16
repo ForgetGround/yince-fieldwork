@@ -403,10 +403,7 @@ export default function Home() {
             <span className="avatar">{session.user.name[0]}</span>
             <div>
               <strong>{session.user.name}</strong>
-              <small>
-                {roleNames[role]}
-                {state.workspace.demo ? " · 演示身份" : ""}
-              </small>
+              <small>{roleNames[role]}</small>
             </div>
             <button
               className="icon-btn"
@@ -428,37 +425,11 @@ export default function Home() {
         <header className="topbar">
           <div className="breadcrumb">
             <SidebarTrigger className="mobile-toggle" />
-            <span>{state.workspace.demo ? "独立体验" : "团队工作空间"}</span>
+            <span>团队工作空间</span>
             <ChevronRight size={14} />
             <strong>{nav.find((n) => n.id === view)?.name}</strong>
           </div>
           <div className="top-actions">
-            {state.workspace.demo && (
-              <label className="demo-identity">
-                <span>演示身份</span>
-                <select
-                  aria-label="切换演示身份"
-                  value={session.user.id}
-                  disabled={busy}
-                  onChange={async (e) => {
-                    try {
-                      await platform.switchIdentity(e.target.value);
-                      toast.success("演示身份已切换，权限已重新校验");
-                    } catch (e) {
-                      toast.error((e as Error).message);
-                    }
-                  }}
-                >
-                  {state.members
-                    .filter((m) => m.active)
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} · {roleNames[m.role]}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            )}
             <span className="date-label">{state.referenceDate}</span>
             <button
               className="icon-btn"
@@ -486,15 +457,6 @@ export default function Home() {
           {error && (
             <div className="notice warning" role="status">
               {error}
-            </div>
-          )}
-          {state.workspace.demo && (
-            <div className="demo-banner">
-              <span>
-                <ShieldCheck size={14} />
-                独立演示空间 · 仅使用模拟资料
-              </span>
-              <span>24 小时后过期 · 切换右上角身份体验协作</span>
             </div>
           )}
           {(view === "overview" || view === "customers") && (

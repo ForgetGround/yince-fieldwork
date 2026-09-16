@@ -438,33 +438,15 @@ test("真实 PostgreSQL：登录、跨空间权限、双人审查、沟通闭环
       active: true,
     });
   });
-  await t.test("独立演示空间互不可见，模拟身份仅限本空间", async () => {
-    const a = new Client(),
-      b = new Client();
-    assert.equal((await a.call("/auth/demo", {})).status, 201);
-    assert.equal((await b.call("/auth/demo", {})).status, 201);
-    await a.session();
-    await b.session();
-    assert.notEqual(a.ws, b.ws);
-    assert.equal((await a.call(`/workspaces/${b.ws}/state`)).status, 403);
-    const other = (await b.state()).members.find(
-      (m: any) => m.role === "admin",
-    );
+  await t.test("公开演示与身份切换入口已关闭", async () => {
+    const a = new Client();
+    assert.equal((await a.call("/public/config")).body.demoAvailable, false);
+    assert.equal((await a.call("/auth/demo", {})).status, 403);
+    assert.equal((await a.call("/demo/identity", {})).status, 403);
     assert.equal(
-      (await a.call("/demo/identity", { userId: other.id })).status,
+      (await admin.call("/demo/identity", { userId: managerId })).status,
       403,
     );
-    const mine = (await a.state()).members.find(
-      (m: any) => m.role === "reviewer",
-    );
-    assert.equal(
-      (await a.call("/demo/identity", { userId: mine.id })).status,
-      200,
-    );
-    await a.session();
-    assert.equal((await a.state()).workspace.role, "reviewer");
-    await a.call("/auth/logout", {});
-    assert.equal((await a.call(`/workspaces/${a.ws}/state`)).status, 401);
   });
   await pool.end();
 });

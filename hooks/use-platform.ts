@@ -31,7 +31,9 @@ export function usePlatform() {
               },
         body: data === undefined ? undefined : JSON.stringify(data),
       });
-      const value = (await response.json().catch(() => ({ error: "服务响应异常" }))) as T & { error?: string };
+      const value = (await response
+        .json()
+        .catch(() => ({ error: "服务响应异常" }))) as T & { error?: string };
       if (!response.ok) {
         if (response.status === 401) {
           identity.current = null;
@@ -160,11 +162,6 @@ export function usePlatform() {
     setState(null);
     setSession(null);
   }
-  async function switchIdentity(userId: string) {
-    if (busy) return;
-    await request("/demo/identity", { userId });
-    await refreshSession();
-  }
   return {
     session,
     state,
@@ -178,6 +175,5 @@ export function usePlatform() {
     refreshSession,
     authenticate,
     logout,
-    switchIdentity,
   };
 }

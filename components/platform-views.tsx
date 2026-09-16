@@ -57,16 +57,12 @@ export function AuthScreen({
 }) {
   const [mode, setMode] = useState<"login" | "setup">("login"),
     [setup, setSetup] = useState(false),
-    [demo, setDemo] = useState(true),
     [working, setWorking] = useState(false),
     [message, setMessage] = useState("");
   useEffect(() => {
-    request<{ setupAvailable: boolean; demoAvailable: boolean }>(
-      "/public/config",
-    )
+    request<{ setupAvailable: boolean }>("/public/config")
       .then((v) => {
         setSetup(v.setupAvailable);
-        setDemo(v.demoAvailable);
       })
       .catch((e) => setMessage(e.message));
   }, [request]);
@@ -126,11 +122,11 @@ export function AuthScreen({
       </section>
       <section className="auth-card">
         <div className="eyebrow">WELCOME TO YOUR WORKSPACE</div>
-        <h2>{mode === "setup" ? "初始化管理员" : "进入工作空间"}</h2>
+        <h2>{mode === "setup" ? "初始化管理员" : "管理员登录"}</h2>
         <p>
           {mode === "setup"
             ? "使用专属设置码建立第一个管理员账号。"
-            : "使用团队账号登录，或开启独立的模拟体验。"}
+            : "使用管理员账号登录你的工作空间。"}
         </p>
         <form onSubmit={submit}>
           {mode === "setup" && (
@@ -155,7 +151,7 @@ export function AuthScreen({
             <Input
               name="username"
               autoComplete="username"
-              placeholder="你的团队账号"
+              placeholder="管理员账号"
               minLength={3}
               maxLength={50}
               required
@@ -191,34 +187,6 @@ export function AuthScreen({
             {mode === "setup" ? "创建管理员并进入" : "登录工作空间"}
           </button>
         </form>
-        {demo && (
-          <>
-            <div className="auth-divider">
-              <span>体验产品</span>
-            </div>
-            <button
-              className="btn auth-submit"
-              disabled={working}
-              onClick={async () => {
-                setWorking(true);
-                try {
-                  await authenticate("/auth/demo", {});
-                } catch (e) {
-                  setMessage((e as Error).message);
-                  setWorking(false);
-                }
-              }}
-            >
-              开启独立演示空间
-              <ArrowRight size={16} />
-            </button>
-            <p className="auth-note">
-              20 位模拟客户 · 可切换演示身份 · 数据保存 24 小时
-              <br />
-              每位访客独立体验，请勿录入真实客户资料。
-            </p>
-          </>
-        )}
         {setup && (
           <button
             className="text-btn setup-link"

@@ -37,10 +37,9 @@ PGDATABASE=yince
 PGUSER=yince_app
 PGPASSWORD=<独立随机数据库密码>
 SETUP_TOKEN=<随机一次性初始化码>
-ALLOW_DEMO=true
 ```
 
-首次管理员初始化后，数据库记录初始化状态，该接口不能再创建第二个初始管理员。管理员自行输入账号和密码；初始化码私下交付。保留演示入口可用于公开展示；设置 `ALLOW_DEMO=false` 并重启自己的 API 可关闭新增体验空间。
+首次管理员初始化后，数据库记录初始化状态，该接口不能再创建第二个初始管理员。管理员自行输入账号和密码；初始化码私下交付。公开演示与身份切换已在代码中移除，环境变量不能重新启用；升级时停用历史演示账号与成员资格，并使其会话、空间过期。
 
 ## 数据库初始化
 
@@ -64,7 +63,7 @@ runuser -u yince-db -- env LD_LIBRARY_PATH=/srv/yince-db/runtime/usr/lib/x86_64-
 4. 上传至两个新的、版本化的 release 目录，核验 SHA-256。在 API 发布目录用自己的 Node/npm 执行 `npm ci --omit=dev --ignore-scripts`；只安装 pg/zod 等精简依赖。完成后目录为 root:yince-api 0750，文件只读。
 5. 管理员备份后执行必要迁移；原子切换 `/srv/yince-api/current` 链接，安装／校验 API 单元，启动自己的 socket 与服务。检查 Unix socket 的 `/api/healthz`。
 6. 安装仅银策使用的 gateway、proxy 和 vhost 文件；`nginx -t` 成功后平滑重载入口。其他业务服务无需重启。
-7. 原子切换 `/srv/yince/current` 静态发布链接，检查 HTTPS、静态资源、登录、公共演示、权限和限流。
+7. 原子切换 `/srv/yince/current` 静态发布链接，检查 HTTPS、静态资源、管理员登录、演示访问拒绝、权限和限流。
 8. 对照其他站点配置与服务基线，确认隔离和原项目健康。
 
 API 需要 Node 24 原生 TypeScript 类型剥离，不在服务端进行 Next 构建。服务通过自己的 Unix socket 获取流量，端口 59604 仅用于本地开发和测试。

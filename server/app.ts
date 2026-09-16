@@ -24,7 +24,7 @@ import {
   members,
   type Identity,
 } from "./platform.ts";
-import type { Role, Session, Workspace } from "../lib/platform.ts";
+import type { Session, Workspace } from "../lib/platform.ts";
 
 const origin = process.env.PUBLIC_ORIGIN || "http://127.0.0.1:5173";
 const secure = origin.startsWith("https://");
@@ -93,7 +93,7 @@ async function authenticate(req: IncomingMessage): Promise<Auth | null> {
   const raw = cookie(req);
   if (!raw) return null;
   const r = await pool.query(
-    "SELECT u.id,u.name,u.username,s.csrf,s.demo_workspace_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active",
+    "SELECT u.id,u.name,u.username,s.csrf,s.demo_workspace_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active AND NOT u.demo AND s.demo_workspace_id IS NULL",
     [digest(raw)],
   );
   const s = r.rows[0];
@@ -181,7 +181,7 @@ export const server = createServer(async (req, res) => {
       );
       json(res, 200, {
         setupAvailable: !!process.env.SETUP_TOKEN && !r.rowCount,
-        demoAvailable: process.env.ALLOW_DEMO !== "false",
+        demoAvailable: false,
       });
       return;
     }
@@ -233,67 +233,15 @@ export const server = createServer(async (req, res) => {
       json(res, 201, { ok: true });
       return;
     }
-    if (path === "/api/auth/demo" && method === "POST") {
-      demand(process.env.ALLOW_DEMO !== "false", 403, "公开演示已关闭");
-      limiter.take("demo:" + ip, 4, 3600_000);
-      await body(req);
-      const prior = await authenticate(req);
-      if (prior?.demoWorkspaceId) {
-        json(res, 200, { ok: true });
-        return;
-      }
-      const raw = await transaction(async (tx) => {
-        await tx.query("SELECT pg_advisory_xact_lock(9182602)");
-        await tx.query("DELETE FROM sessions WHERE expires_at<now()");
-        await tx.query(
-          "DELETE FROM workspaces WHERE demo AND expires_at<now()",
-        );
-        await tx.query(
-          "DELETE FROM users u WHERE u.demo AND NOT EXISTS(SELECT 1 FROM memberships m WHERE m.user_id=u.id) AND NOT EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.id)",
-        );
-        const count = await tx.query(
-          "SELECT count(*)::int AS n FROM workspaces WHERE demo",
-        );
-        demand(count.rows[0].n < 100, 503, "体验空间暂满，请稍后再试");
-        const ws = randomUUID();
-        await tx.query(
-          "INSERT INTO workspaces(id,name,demo,expires_at) VALUES($1,$2,true,now()+interval '24 hours')",
-          [ws, "银策 · 独立体验空间"],
-        );
-        const personas: [string, Role][] = [
-          ["陈经理", "manager"],
-          ["林经理", "manager"],
-          ["周主管", "supervisor"],
-          ["许审查员", "reviewer"],
-          ["空间管理员", "admin"],
-          ["只读访客", "viewer"],
-        ];
-        const ids: string[] = [];
-        for (const [name, role] of personas) {
-          const id = randomUUID();
-          ids.push(id);
-          await tx.query(
-            "INSERT INTO users(id,username,name,demo) VALUES($1,$2,$3,true)",
-            [id, "demo-" + id, name],
-          );
-          await tx.query(
-            "INSERT INTO memberships(workspace_id,user_id,role) VALUES($1,$2,$3)",
-            [ws, id, role],
-          );
-        }
-        await seedWorkspace(tx, ws, ids[0], await members(tx, ws));
-        return newSession(tx, ids[0], ws);
-      });
-      setCookie(res, raw);
-      json(res, 201, { ok: true });
-      return;
+    if (["/api/auth/demo", "/api/demo/identity"].includes(path)) {
+      throw new HttpError(403, "演示账号已关闭，请使用管理员账号登录");
     }
     const user = await authenticate(req);
     if (path === "/api/session" && method === "GET") {
       json(res, 200, user ? await session(user) : null);
       return;
     }
-    demand(user, 401, "请先登录或进入独立演示空间");
+    demand(user, 401, "请先使用管理员账号登录");
     if (mutation)
       demand(
         typeof req.headers["x-csrf-token"] === "string" &&
@@ -305,24 +253,6 @@ export const server = createServer(async (req, res) => {
     if (path === "/api/auth/logout" && method === "POST") {
       await pool.query("DELETE FROM sessions WHERE token_hash=$1", [user.hash]);
       setCookie(res, "", 0);
-      json(res, 200, { ok: true });
-      return;
-    }
-    if (path === "/api/demo/identity" && method === "POST") {
-      demand(user.demoWorkspaceId, 403, "只有独立演示空间允许切换模拟身份");
-      const b = z
-        .object({ userId: z.string().uuid() })
-        .strict()
-        .parse(await body(req));
-      const r = await pool.query(
-        "SELECT 1 FROM memberships m JOIN users u ON u.id=m.user_id JOIN workspaces w ON w.id=m.workspace_id WHERE m.workspace_id=$1 AND m.user_id=$2 AND m.active AND u.demo AND w.demo AND w.expires_at>now()",
-        [user.demoWorkspaceId, b.userId],
-      );
-      demand(r.rowCount, 403, "不能切换到此身份");
-      await pool.query(
-        "UPDATE sessions SET user_id=$2,csrf=$3 WHERE token_hash=$1",
-        [user.hash, b.userId, token()],
-      );
       json(res, 200, { ok: true });
       return;
     }

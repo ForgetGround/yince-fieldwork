@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Landmark,
   LayoutDashboard,
   ScanLine,
   Users,
@@ -22,6 +21,9 @@ import {
   Database,
 } from "lucide-react";
 import {
+  SidebarInset,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarProvider,
   Sidebar,
   SidebarHeader,
@@ -66,6 +68,7 @@ import {
   downloadJson,
 } from "@/lib/workbench";
 import { CustomerMap } from "@/components/customer-map";
+import { BrandLogo } from "@/components/brand-logo";
 import { FieldworkHome } from "@/components/fieldwork-home";
 import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
@@ -265,7 +268,7 @@ export default function Home() {
         <Toaster position="top-center" richColors />
         {loading ? (
           <div className="boot-screen">
-            <Landmark />
+            <BrandLogo size={44} />
             <h2>银策 YINGCE</h2>
             <p>正在连接你的工作空间…</p>
           </div>
@@ -324,10 +327,10 @@ export default function Home() {
     );
   return (
     <SidebarProvider
-      style={{ "--sidebar-width": "230px" } as React.CSSProperties}
+      style={{ "--sidebar-width": "244px" } as React.CSSProperties}
     >
       <Toaster position="top-center" richColors />
-      <Sidebar className="brand-sidebar">
+      <Sidebar className="brand-sidebar" variant="inset">
         <SidebarHeader>
           <button
             className="brand"
@@ -335,7 +338,7 @@ export default function Home() {
             aria-label="银策编译器首页"
           >
             <div className="brand-mark">
-              <Landmark size={23} />
+              <BrandLogo size={38} />
             </div>
             <div>
               <strong>银策编译器</strong>
@@ -361,36 +364,31 @@ export default function Home() {
               ))}
             </select>
           </div>
-          <SidebarMenu>
-            {nav.map((n) => (
-              <SidebarMenuItem key={n.id}>
-                <NavButton
-                  item={n}
-                  active={view === n.id}
-                  count={
-                    n.id === "reviews"
-                      ? state.reviews.filter((r) => r.status === "pending")
-                          .length
-                      : 0
-                  }
-                  onNavigate={navigate}
-                />
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-          <div className="sidebar-note">
-            <ShieldCheck size={21} />
-            <strong>每一条建议，都有依据</strong>
-            <p>
-              数据按空间保存，
-              <br />
-              行动由团队确认。
-            </p>
-            <div className="privacy-line">
-              <span />
-              PostgreSQL 已连接
-            </div>
-          </div>
+          {[
+            { label: "展业", items: nav.slice(0, 4) },
+            { label: "协作与管理", items: nav.slice(4) },
+          ].map((group) => (
+            <SidebarGroup key={group.label} className="dashboard-nav-group">
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarMenu>
+                {group.items.map((n) => (
+                  <SidebarMenuItem key={n.id}>
+                    <NavButton
+                      item={n}
+                      active={view === n.id}
+                      count={
+                        n.id === "reviews"
+                          ? state.reviews.filter((r) => r.status === "pending")
+                              .length
+                          : 0
+                      }
+                      onNavigate={navigate}
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
         <SidebarFooter>
           <button className="sidebar-help" onClick={() => setGuide(true)}>
@@ -419,10 +417,13 @@ export default function Home() {
           </div>
         </SidebarFooter>
       </Sidebar>
-      <div className="app-main">
+      <SidebarInset className="app-main">
         <header className="topbar">
           <div className="breadcrumb">
-            <SidebarTrigger className="mobile-toggle" />
+            <SidebarTrigger
+              className="dashboard-toggle"
+              aria-label="展开或收起导航"
+            />
             <span>团队工作空间</span>
             <ChevronRight size={14} />
             <strong>{nav.find((n) => n.id === view)?.name}</strong>
@@ -451,7 +452,7 @@ export default function Home() {
             </button>
           </div>
         </header>
-        <main className="workspace">
+        <div className="workspace">
           {error && (
             <div className="notice warning" role="status">
               {error}
@@ -683,8 +684,8 @@ export default function Home() {
               {busy ? "正在保存…" : "已连接工作空间数据库"}
             </span>
           </footer>
-        </main>
-      </div>
+        </div>
+      </SidebarInset>
       {customer && (
         <CustomerDetail
           key={scopeKey + customer.id + briefProductId}

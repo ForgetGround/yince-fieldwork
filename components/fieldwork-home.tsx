@@ -6,6 +6,7 @@ import {
   ClipboardList,
   ArrowRight,
 } from "lucide-react";
+import { DashboardSummary } from "./dashboard-summary";
 import { toast } from "sonner";
 import type { PlatformState } from "@/lib/platform";
 import { ranked, type Customer, type Rule } from "@/lib/workbench";
@@ -55,9 +56,9 @@ export function FieldworkHome({
     <>
       <div className="field-home-header">
         <div>
-          <span className="eyebrow">TODAY'S FIELDWORK</span>
-          <h1>把准备做好，再出发。</h1>
-          <p>围绕一位客户、一款产品，完成今天的沟通准备。</p>
+          <span className="eyebrow">今日工作</span>
+          <h1>展业工作台</h1>
+          <p>查看待办，准备下一次有效沟通。</p>
         </div>
         <div className="field-context">
           <label>
@@ -90,50 +91,7 @@ export function FieldworkHome({
           </label>
         </div>
       </div>
-      <div className="field-todos" aria-label="待办概览">
-        <button
-          className="panel field-todo"
-          onClick={() => onNavigate("followups")}
-        >
-          <span>待办任务</span>
-          <strong>
-            {state.tasks.filter((t) => !t.done).length}
-            <small>项</small>
-          </strong>
-          <span>
-            查看待跟进任务 <ArrowRight size={15} />
-          </span>
-        </button>
-        <button
-          className="panel field-todo overdue"
-          onClick={() => onNavigate("followups")}
-        >
-          <span>逾期待办</span>
-          <strong>
-            {
-              state.tasks.filter((t) => !t.done && t.due < state.referenceDate)
-                .length
-            }
-            <small>项</small>
-          </strong>
-          <span>
-            优先处理超期事项 <ArrowRight size={15} />
-          </span>
-        </button>
-        <button
-          className="panel field-todo"
-          onClick={() => onNavigate("reviews")}
-        >
-          <span>待审查事项</span>
-          <strong>
-            {state.reviews.filter((r) => r.status === "pending").length}
-            <small>项</small>
-          </strong>
-          <span>
-            查看审查与转派 <ArrowRight size={15} />
-          </span>
-        </button>
-      </div>
+      <DashboardSummary state={state} onNavigate={onNavigate} />
       <div className="field-home-grid">
         <section className="panel field-card">
           <div className="field-card-title">

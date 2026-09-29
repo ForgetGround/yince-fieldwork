@@ -1,8 +1,8 @@
 "use client";
+import { BrandLogo } from "@/components/brand-logo";
 import { canReviewProductRules } from "@/lib/fieldwork";
 import { useEffect, useState } from "react";
 import {
-  Landmark,
   ArrowRight,
   ShieldCheck,
   Database,
@@ -87,11 +87,11 @@ export function AuthScreen({
     <div className="auth-layout">
       <section className="auth-story">
         <div className="auth-brand">
-          <Landmark size={27} />
+          <BrandLogo size={42} />
           <strong>银策 YINGCE</strong>
           <span>展业版 3.0</span>
         </div>
-        <span className="eyebrow">FROM POLICY TO ACTION</span>
+        <span className="eyebrow">YINGCE · FIELDWORK</span>
         <h1>
           有依据的建议，
           <br />
@@ -109,7 +109,7 @@ export function AuthScreen({
           </span>
           <span>
             <Database />
-            PostgreSQL 数据持久化
+            客户与产品统一管理
           </span>
           <span>
             <GitBranch />
@@ -122,7 +122,11 @@ export function AuthScreen({
         </div>
       </section>
       <section className="auth-card">
-        <div className="eyebrow">WELCOME TO YOUR WORKSPACE</div>
+        <div className="auth-mobile-brand">
+          <BrandLogo size={42} />
+          <strong>银策 YINGCE</strong>
+        </div>
+        <div className="eyebrow">欢迎回来</div>
         <h2>{mode === "setup" ? "初始化管理员" : "管理员登录"}</h2>
         <p>
           {mode === "setup"

@@ -114,3 +114,7 @@ node --env-file=work/test-api.env --test tests/api.integration.test.ts
 - API 的审计权限只允许新增和读取，但主机／数据库管理员仍可管理数据；水印也不能替代访问权限与审计。
 
 功能验证仅使用模拟或已脱敏数据，不上传客户身份证号、完整交易明细、银行内部密钥或未获授权的联系方式。
+
+### 界面模板与品牌
+
+界面采用 [shadcn/ui Dashboard-01](https://ui.shadcn.com/blocks) 的侧栏与卡片结构，适配银策蓝灰主题，使用原创 SVG Logo。模板遵循 MIT 许可，详见 [设计模板选型与适配](docs/设计模板选型.md) 和 [第三方许可](vendor/shadcn-ui-LICENSE.md)。

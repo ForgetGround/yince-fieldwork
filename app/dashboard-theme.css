@@ -594,8 +594,32 @@ tr:hover td {
   background: #f6f8fc;
   color: #334155;
 }
+/* Keep the brand visible over both page content and portalled dialogs. */
 .brand-watermark {
-  opacity: 0.028;
+  opacity: 0.085;
+}
+@media print {
+  .brand-watermark {
+    opacity: 0.12;
+  }
+}
+.workspace-settings-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 13px;
+}
+.workspace-settings-picker select {
+  max-width: 100%;
+  min-width: 240px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
 }
 @media (min-width: 768px) {
   .app-main {

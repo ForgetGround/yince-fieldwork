@@ -347,11 +347,15 @@ export function WorkspaceView({
   state,
   command,
   createWorkspace,
+  workspaces,
+  onChoose,
   busy,
 }: {
   state: PlatformState;
   command: RunCommand;
   createWorkspace: (name: string) => Promise<void>;
+  workspaces: Session["workspaces"];
+  onChoose: (id: string) => void;
   busy: boolean;
 }) {
   const [adding, setAdding] = useState(false),
@@ -383,6 +387,23 @@ export function WorkspaceView({
           </button>
         )}
       </PageTitle>
+      {workspaces.length > 1 && (
+        <div className="workspace-settings-picker">
+          <label htmlFor="workspace-settings-select">切换工作空间</label>
+          <select
+            id="workspace-settings-select"
+            value={state.workspace.id}
+            disabled={busy}
+            onChange={(e) => onChoose(e.target.value)}
+          >
+            {workspaces.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="workspace-summary">
         <div className="panel">
           <Layers size={22} />

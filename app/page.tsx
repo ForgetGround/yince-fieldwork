@@ -75,9 +75,9 @@ import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
 const nav = [
   { id: "overview", name: "展业工作台", icon: LayoutDashboard },
-  { id: "customers", name: "客户机会", icon: Users },
-  { id: "products", name: "产品库", icon: ScanLine },
   { id: "followups", name: "访后跟进", icon: ClipboardList },
+  { id: "products", name: "产品库", icon: ScanLine },
+  { id: "customers", name: "客户库", icon: Users },
   { id: "reviews", name: "审查与转派", icon: FileCheck },
   { id: "team", name: "团队进度", icon: TrendingUp },
   { id: "audit", name: "合规与审计", icon: ShieldCheck },
@@ -350,23 +350,9 @@ export default function Home() {
           </button>
         </SidebarHeader>
         <SidebarContent>
-          <div className="workspace-picker">
-            <label htmlFor="workspace-select">当前工作空间</label>
-            <select
-              id="workspace-select"
-              value={state.workspace.id}
-              disabled={busy}
-              onChange={(e) => platform.choose(e.target.value)}
-            >
-              {session.workspaces.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
           {[
-            { label: "展业", items: nav.slice(0, 4) },
+            { label: "日常工作", items: nav.slice(0, 2) },
+            { label: "产品与客户", items: nav.slice(2, 4) },
             { label: "协作与管理", items: nav.slice(4) },
           ].map((group) => (
             <SidebarGroup key={group.label} className="dashboard-nav-group">
@@ -501,7 +487,7 @@ export default function Home() {
                 <div className="panel-title">
                   <div>
                     <h2>
-                      客户机会列表{" "}
+                      客户库{" "}
                       <span className="soft-tag">{filtered.length}</span>
                     </h2>
                     <p>
@@ -655,6 +641,8 @@ export default function Home() {
               state={state}
               command={command}
               busy={busy}
+              workspaces={session.workspaces}
+              onChoose={platform.choose}
               createWorkspace={async (name) => {
                 const w = await platform.request<{ id: string }>(
                   "/workspaces",

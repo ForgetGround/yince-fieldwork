@@ -1,4 +1,5 @@
 "use client";
+import { canReviewProductRules } from "@/lib/fieldwork";
 import { useEffect, useState } from "react";
 import {
   Landmark,
@@ -395,7 +396,7 @@ export function WorkspaceView({
           <ShieldCheck size={22} />
           <h3>权限与审查</h3>
           <p>
-            客户经理处理本人客户；主管协作转派；审查员独立审查；管理员维护成员。
+            客户经理处理本人客户；网点负责人协作转派；管理员维护规则候选；规则审查员独立确认。
           </p>
           <small>提交人不能审查自己的申请。</small>
         </div>
@@ -440,7 +441,8 @@ export function WorkspaceView({
           <b>客户经理：</b>本人客户、访前准备、沟通与纪要、跟进任务、提交审查。
         </p>
         <p>
-          <b>团队主管：</b>全空间展业、团队进度、转派审查、规则与纪要审查。
+          <b>网点负责人／团队主管：</b>
+          本空间展业、团队进度、转派与纪要审查；不得修改或审查产品准入规则。
         </p>
         <p>
           <b>审查员：</b>查看规则与业务依据、独立审查规则及纪要。
@@ -759,6 +761,8 @@ export function ReviewView({
               </div>
               {current.status === "pending" &&
               canReview &&
+              (current.kind !== "rule" ||
+                canReviewProductRules(state.workspace.role)) &&
               current.submittedBy !== session.user.id &&
               (current.kind !== "transfer" ||
                 state.workspace.role !== "reviewer") ? (

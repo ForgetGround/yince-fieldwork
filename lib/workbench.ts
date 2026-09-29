@@ -1,6 +1,7 @@
 export const DEMO_DATE = "2026-09-15";
 export const PRODUCT = "经营流水类贷款（产品名称待核实）";
 export type Customer = {
+  location?: import("./fieldwork.ts").CustomerLocation;
   taxGrade?: "A" | "B" | "C" | "D" | "M" | null;
   taxCompliant?: boolean | null;
   procurementAward?: boolean | null;

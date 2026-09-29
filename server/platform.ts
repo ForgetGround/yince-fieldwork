@@ -1,3 +1,8 @@
+import {
+  navigationUrl,
+  canManageProductRules,
+  canReviewProductRules,
+} from "../lib/fieldwork.ts";
 import { ensureProductCatalog } from "./product-catalog.ts";
 import {
   LEGACY_PRODUCT_ID,
@@ -66,6 +71,29 @@ const date = z
 export const commandSchema = z.discriminatedUnion("type", [
   z
     .object({ type: z.literal("customer.import"), customers: z.unknown() })
+    .strict(),
+  z
+    .object({
+      type: z.literal("customer.location"),
+      customerId: text(30),
+      location: z
+        .object({
+          region: text(60).min(1),
+          address: text(200).min(1),
+          longitude: z.number().finite().min(-180).max(180),
+          latitude: z.number().finite().min(-90).max(90),
+          coordinateSystem: z.literal("GCJ02"),
+          consent: z.boolean(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("customer.navigate"),
+      customerId: text(30),
+      mode: z.enum(["car", "walk", "bus"]).default("car"),
+    })
     .strict(),
   z
     .object({
@@ -374,6 +402,7 @@ export async function readState(ctx: Context): Promise<PlatformState> {
       if (ctx.role === "viewer" || ctx.role === "reviewer") {
         delete out.phone;
         delete out.wechat;
+        delete out.location;
       }
       return out;
     }),
@@ -388,6 +417,7 @@ export async function readState(ctx: Context): Promise<PlatformState> {
         const snapshot = { ...b.customerSnapshot };
         delete snapshot.phone;
         delete snapshot.wechat;
+        delete snapshot.location;
         return { ...b, customerSnapshot: snapshot };
       }
       return b;
@@ -524,6 +554,34 @@ export async function execute(ctx: Context, input: unknown) {
       );
       break;
     }
+    case "customer.location": {
+      const c = await customer(ctx, command.customerId, true);
+      await put(tx, "customers", ws, {
+        ...c,
+        location: { ...command.location, updatedAt: now() },
+      });
+      await audit(
+        ctx,
+        "更新经营位置",
+        c.id,
+        "经营位置已登记；地图授权=" +
+          command.location.consent +
+          "；审计不记录精确坐标。",
+      );
+      break;
+    }
+    case "customer.navigate": {
+      const c = await customer(ctx, command.customerId, true);
+      demand(c.location?.consent, 409, "请先登记并授权使用经营位置");
+      result = { url: navigationUrl(c.location, command.mode) };
+      await audit(
+        ctx,
+        "打开地图导航",
+        c.id,
+        "高德地图；仅传递目的地坐标，不附带客户身份或融资数据。此操作不代表已完成拜访。",
+      );
+      break;
+    }
     case "customer.contact": {
       const c = await customer(ctx, command.customerId, true);
       demand(
@@ -551,7 +609,11 @@ export async function execute(ctx: Context, input: unknown) {
       break;
     }
     case "rule.compile": {
-      allowed(ctx, ["admin", "supervisor", "manager"]);
+      demand(
+        canManageProductRules(ctx.role),
+        403,
+        "仅授权管理员可维护产品规则；网点负责人及客户经理可使用规则，不能修改准入条件",
+      );
       const product = await get<Product>(tx, "products", ws, command.productId);
       demand(product, 404, "产品不存在于当前工作空间");
       const rules = compilePolicy(command.text, command.name);
@@ -577,7 +639,11 @@ export async function execute(ctx: Context, input: unknown) {
       break;
     }
     case "rule.submit": {
-      allowed(ctx, ["admin", "supervisor", "manager"]);
+      demand(
+        canManageProductRules(ctx.role),
+        403,
+        "仅授权管理员可维护产品规则；网点负责人及客户经理可使用规则，不能修改准入条件",
+      );
       const rule = await get<Rule>(tx, "rules", ws, command.ruleId);
       demand(rule?.status === "pending", 409, "规则不是待确认状态");
       demand(
@@ -882,6 +948,12 @@ export async function execute(ctx: Context, input: unknown) {
         "不能审查本人提交的申请，请交由其他审查人员",
       );
       if (r.kind === "transfer") allowed(ctx, ["admin", "supervisor"]);
+      if (r.kind === "rule")
+        demand(
+          canReviewProductRules(ctx.role),
+          403,
+          "产品规则须由管理员或独立规则审查员审核，网点负责人无权变更",
+        );
       if (command.decision === "approved") {
         if (r.kind === "rule") {
           const all = await rows<Rule>(tx, "rules", ws);

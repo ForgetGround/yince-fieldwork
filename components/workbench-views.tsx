@@ -330,6 +330,9 @@ export function ProductRules({
           </button>
         )}
       </div>
+      <p className="micro-copy">
+        产品准入规则由授权管理员维护候选，再由其他管理员或规则审查员确认。网点负责人、客户经理和只读成员不能修改准入条件。
+      </p>
       {pending.length > 0 && (
         <div className="conflict-banner">
           <div className="conflict-icon">

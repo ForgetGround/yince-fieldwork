@@ -11,10 +11,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Upload,
-  Sparkles,
-  Clock3,
   Bell,
-  Check,
   Search,
   TrendingUp,
   Layers,
@@ -51,7 +48,6 @@ import {
 } from "@/components/workbench-views";
 import {
   AuthScreen,
-  Funnel,
   TeamView,
   WorkspaceView,
   ReviewView,
@@ -69,6 +65,7 @@ import {
   opportunity,
   downloadJson,
 } from "@/lib/workbench";
+import { FieldworkHome } from "@/components/fieldwork-home";
 import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
@@ -303,10 +300,6 @@ export default function Home() {
     );
   const role = state.workspace.role,
     canWrite = ["admin", "supervisor", "manager"].includes(role);
-  const pending = state.rules.filter((r) => r.status === "pending");
-  const today = state.tasks.filter(
-    (t) => !t.done && t.due <= state.referenceDate,
-  );
   const unread = state.notifications.filter((n) => !n.read).length;
   const customer = state.customers.find((c) => c.id === customerId) || null;
   const recordCustomer = state.customers.find(
@@ -321,12 +314,6 @@ export default function Home() {
           .includes(query.toLowerCase())),
   );
   const totalPages = Math.max(1, Math.ceil(filtered.length / 10));
-  const urgent = sorted.filter(
-    (c) =>
-      c.daysToMaturity !== null &&
-      c.daysToMaturity >= 0 &&
-      c.daysToMaturity <= 45,
-  );
   const prepared =
     !!customer &&
     state.briefs.some(
@@ -469,292 +456,122 @@ export default function Home() {
               {error}
             </div>
           )}
-          {(view === "overview" || view === "customers") && (
+          {view === "overview" && (
+            <FieldworkHome
+              key={scopeKey}
+              state={state}
+              command={command}
+              busy={busy}
+              onOpen={openCustomer}
+              onSource={showSource}
+            />
+          )}
+          {view === "customers" && (
             <>
               <PageTitle
-                eyebrow={
-                  view === "overview"
-                    ? "YOUR DAILY WORKSPACE"
-                    : "CUSTOMER OPPORTUNITIES"
-                }
-                title={
-                  view === "overview"
-                    ? "把机会，变成今天的行动"
-                    : "找对客户，带着依据出发"
-                }
-                description={
-                  view === "overview"
-                    ? "从规则命中到沟通跟进，在你的工作空间持续推进。"
-                    : "到期窗口、场景标签和联系优先级，让展业重点一眼可见。"
-                }
+                eyebrow="CUSTOMER OPPORTUNITIES"
+                title="找对客户，带着依据出发"
+                description="到期窗口、场景标签和联系优先级，让展业重点一眼可见。"
               >
                 {canWrite && (
-                  <>
-                    <button className="btn" onClick={() => setImportOpen(true)}>
-                      <Upload size={16} />
-                      导入客户
-                    </button>
-                    <button
-                      className="btn primary"
-                      onClick={() => navigate("products")}
-                    >
-                      <ScanLine size={16} />
-                      从产品匹配客户
-                    </button>
-                  </>
+                  <button className="btn" onClick={() => setImportOpen(true)}>
+                    <Upload size={16} />
+                    导入客户
+                  </button>
                 )}
+                <button
+                  className="btn primary"
+                  onClick={() => navigate("products")}
+                >
+                  <ScanLine size={16} />
+                  从产品匹配客户
+                </button>
               </PageTitle>
-              {view === "overview" && (
-                <>
-                  <div className="stats-grid">
-                    {[
-                      {
-                        label: "优先联系客户",
-                        value: sorted.filter((c) => opportunity(c).score >= 60)
-                          .length,
-                        unit: "位",
-                        caption: `${sorted.filter((c) => opportunity(c).score >= 85).length} 位高优先级 · 红色提示`,
-                        icon: Users,
-                        to: "customers",
-                      },
-                      {
-                        label: "临近到期窗口",
-                        value: urgent.length,
-                        unit: "位",
-                        caption: "45 天内到期 · 提前核实安排",
-                        icon: Clock3,
-                        to: "customers",
-                      },
-                      {
-                        label: "待完成跟进",
-                        value: state.tasks.filter((t) => !t.done).length,
-                        unit: "项",
-                        caption: `${today.length} 项今日或逾期待办`,
-                        icon: ClipboardList,
-                        to: "followups",
-                      },
-                      {
-                        label: "等待独立审查",
-                        value: state.reviews.filter(
-                          (r) => r.status === "pending",
-                        ).length,
-                        unit: "项",
-                        caption: "规则 · 纪要 · 客户转派",
-                        icon: FileCheck,
-                        to: "reviews",
-                      },
-                    ].map((s, i) => (
-                      <button
-                        className={"stat-card stat-" + i}
-                        key={s.label}
-                        onClick={() => navigate(s.to)}
-                      >
-                        <div className="stat-top">
-                          <span>{s.label}</span>
-                          <s.icon size={18} />
-                        </div>
-                        <div className="stat-value">
-                          {s.value}
-                          <span>{s.unit}</span>
-                        </div>
-                        <p>{s.caption}</p>
-                        <div className="stat-bottom">
-                          <span>
-                            <Check size={13} /> 数据库同步
-                          </span>
-                          <ArrowUpRight size={14} />
-                        </div>
-                      </button>
-                    ))}
+              <section className="panel opportunity-panel">
+                <div className="panel-title">
+                  <div>
+                    <h2>
+                      客户机会列表{" "}
+                      <span className="soft-tag">{filtered.length}</span>
+                    </h2>
+                    <p>
+                      {role === "manager"
+                        ? "本人负责的客户"
+                        : "当前工作空间的客户"}{" "}
+                      · 联系颜色不代表授信风险
+                    </p>
                   </div>
-                  <Funnel state={state} compact />
-                </>
-              )}
-              <div
-                className={
-                  view === "overview" ? "dashboard-grid" : "customer-full"
-                }
-              >
-                <section className="panel opportunity-panel">
-                  <div className="panel-title">
-                    <div>
-                      <h2>
-                        {view === "overview" ? "今日联系清单" : "客户机会列表"}{" "}
-                        <span className="soft-tag">{filtered.length}</span>
-                      </h2>
-                      <p>
-                        {role === "manager"
-                          ? "本人负责的客户"
-                          : "当前工作空间的客户"}{" "}
-                        · 联系颜色不代表授信风险
-                      </p>
-                    </div>
-                    {view === "overview" ? (
-                      <button
-                        className="text-btn"
-                        onClick={() => navigate("customers")}
-                      >
-                        全部客户
-                        <ArrowRight size={15} />
-                      </button>
-                    ) : (
-                      <div className="customer-search">
-                        <Search size={16} />
-                        <Input
-                          aria-label="搜索客户编号或行业"
-                          placeholder="搜索编号、行业、需求"
-                          value={query}
-                          onChange={(e) => {
-                            setQuery(e.target.value);
-                            setPage(1);
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="list-toolbar">
-                    <Tabs
-                      value={filter}
-                      onValueChange={(v) => {
-                        setFilter(v);
+                  <div className="customer-search">
+                    <Search size={16} />
+                    <Input
+                      aria-label="搜索客户编号或行业"
+                      placeholder="搜索编号、行业、需求"
+                      value={query}
+                      onChange={(e) => {
+                        setQuery(e.target.value);
                         setPage(1);
                       }}
-                    >
-                      <TabsList variant="line">
-                        {[
-                          "all",
-                          "续贷服务",
-                          "材料补充",
-                          "需求核实",
-                          "客户维护",
-                        ].map((t) => (
-                          <TabsTrigger key={t} value={t}>
-                            {t === "all" ? "全部机会" : t}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                    </Tabs>
-                    <span className="priority-legend">
-                      <i /> 高优先级
-                    </span>
-                  </div>
-                  {filtered.length ? (
-                    <CustomerTable
-                      customers={
-                        view === "overview"
-                          ? filtered.slice(0, 5)
-                          : filtered.slice((page - 1) * 10, page * 10)
-                      }
-                      onOpen={openCustomer}
                     />
-                  ) : (
-                    <Empty
-                      title="没有匹配的客户"
-                      description="尝试调整关键词、场景筛选或工作空间。"
-                    />
-                  )}
-                  <div className="table-foot">
-                    <ShieldCheck size={14} />
-                    每条建议可查看命中规则<span>联系优先级 · 非审批概率</span>
                   </div>
-                  {view === "customers" && (
-                    <div className="pagination">
-                      <span>
-                        共 {filtered.length} 位 · {page}/{totalPages}
-                      </span>
-                      <button
-                        className="btn"
-                        disabled={page <= 1}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        上一页
-                      </button>
-                      <button
-                        className="btn"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        下一页
-                      </button>
-                    </div>
-                  )}
-                </section>
-                {view === "overview" && (
-                  <aside className="right-rail">
-                    <section className="insight-card">
-                      <div className="insight-label">
-                        <Sparkles size={16} />
-                        今天，先抓住这个窗口
-                      </div>
-                      <h3>让到期提醒，提前变成准备。</h3>
-                      <p>
-                        {urgent.length
-                          ? `${urgent.length} 位客户进入续贷沟通窗口。先核实经营与资金安排，再记录需求、补齐材料。`
-                          : "当前没有进入 45 天到期窗口的客户，可优先查看已有需求和待补材料。"}
-                      </p>
-                      <div className="insight-data">
-                        <span>
-                          <b>{urgent.length}</b> 位客户
-                        </span>
-                        <span>
-                          <b>45</b> 天窗口
-                        </span>
-                      </div>
-                      <button onClick={() => setFilter("续贷服务")}>
-                        查看到期客户
-                        <ArrowRight size={16} />
-                      </button>
-                    </section>
-                    <section className="panel today-panel">
-                      <div className="panel-title">
-                        <h2>今日重点跟进</h2>
-                        <span className="soft-tag">{today.length}</span>
-                      </div>
-                      {today.slice(0, 3).map((t) => (
-                        <div className="todo" key={t.id}>
-                          <Clock3 size={17} />
-                          <div>
-                            <button
-                              className="todo-title"
-                              onClick={() => {
-                                const c = state.customers.find(
-                                  (c) => c.id === t.customerId,
-                                );
-                                if (c) void openCustomer(c);
-                              }}
-                            >
-                              {t.title}
-                            </button>
-                            <p>
-                              {t.customerId} · {t.assigneeName}
-                            </p>
-                            <span
-                              className={
-                                "deadline-tag " +
-                                (t.due < state.referenceDate ? "overdue" : "")
-                              }
-                            >
-                              {t.due === state.referenceDate
-                                ? "今天到期"
-                                : `${t.due} 已逾期`}
-                            </span>
-                          </div>
-                        </div>
+                </div>
+                <div className="list-toolbar">
+                  <Tabs
+                    value={filter}
+                    onValueChange={(v) => {
+                      setFilter(v);
+                      setPage(1);
+                    }}
+                  >
+                    <TabsList variant="line">
+                      {[
+                        "all",
+                        "续贷服务",
+                        "材料补充",
+                        "需求核实",
+                        "客户维护",
+                      ].map((t) => (
+                        <TabsTrigger key={t} value={t}>
+                          {t === "all" ? "全部机会" : t}
+                        </TabsTrigger>
                       ))}
-                      {!today.length && (
-                        <p className="today-empty">今天没有到期任务。</p>
-                      )}
-                      <button
-                        className="text-btn todo-all"
-                        onClick={() => navigate("followups")}
-                      >
-                        查看全部跟进
-                        <ArrowRight size={14} />
-                      </button>
-                    </section>
-                  </aside>
+                    </TabsList>
+                  </Tabs>
+                  <span className="priority-legend">
+                    <i />
+                    高优先级
+                  </span>
+                </div>
+                {filtered.length ? (
+                  <CustomerTable
+                    customers={filtered.slice((page - 1) * 10, page * 10)}
+                    onOpen={openCustomer}
+                  />
+                ) : (
+                  <Empty
+                    title="没有匹配的客户"
+                    description="尝试调整关键词、场景筛选或工作空间。"
+                  />
                 )}
-              </div>
+                <div className="pagination">
+                  <span>
+                    共 {filtered.length} 位 · {page}/{totalPages}
+                  </span>
+                  <button
+                    className="btn"
+                    disabled={page <= 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    上一页
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    下一页
+                  </button>
+                </div>
+              </section>
             </>
           )}
           {view === "products" && (

@@ -1,4 +1,5 @@
 "use client";
+import { canManageProductRules } from "@/lib/fieldwork";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, FileText, Search } from "lucide-react";
 import { PageTitle, ProductRules } from "./workbench-views";
@@ -291,7 +292,7 @@ export function ProductLibrary({
           key={product.id}
           product={product}
           state={{ ...state, rules }}
-          canWrite={canWrite}
+          canWrite={canWrite && canManageProductRules(state.workspace.role)}
           onSource={onSource}
           onActivate={onActivate}
           onCompile={(r) => onCompile(r, product.id)}

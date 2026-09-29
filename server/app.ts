@@ -3,6 +3,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
+import { answerChat, latestConversation } from "./assistant-service.ts";
 import { randomUUID } from "node:crypto";
 import { z, ZodError } from "zod";
 import { pool, transaction } from "./db.ts";
@@ -276,11 +277,20 @@ export const server = createServer(async (req, res) => {
       return;
     }
     const match = path.match(
-      /^\/api\/workspaces\/([a-f0-9-]+)\/(state|commands)$/,
+      /^\/api\/workspaces\/([a-f0-9-]+)\/(state|commands|assistant)$/,
     );
     if (match) {
       const ws = match[1];
       limiter.take("workspace:" + ws, 300, 60_000);
+      if (match[2] === "assistant" && method === "GET") {
+        json(res, 200, await latestConversation(user, ws));
+        return;
+      }
+      if (match[2] === "assistant" && method === "POST") {
+        limiter.take("assistant:" + user.id, 8, 60_000);
+        json(res, 200, await answerChat(user, ws, await body(req)));
+        return;
+      }
       if (match[2] === "state" && method === "GET") {
         const state = await withWorkspace(user, ws, readState);
         json(res, 200, state);

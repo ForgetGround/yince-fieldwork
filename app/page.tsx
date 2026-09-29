@@ -69,7 +69,7 @@ import {
 } from "@/lib/workbench";
 import { CustomerMap } from "@/components/customer-map";
 import { BrandLogo } from "@/components/brand-logo";
-import { FieldworkHome } from "@/components/fieldwork-home";
+import { AssistantHome } from "@/components/assistant-home";
 import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
@@ -111,6 +111,7 @@ function NavButton({
   );
 }
 export default function Home() {
+  const [assistantProduct, setAssistantProduct] = useState<string | null>(null);
   const platform = usePlatform();
   const { state, session, busy, loading, error, command } = platform;
   const [view, setView] = useState("overview"),
@@ -459,14 +460,20 @@ export default function Home() {
             </div>
           )}
           {view === "overview" && (
-            <FieldworkHome
-              onNavigate={navigate}
+            <AssistantHome
               key={scopeKey}
               state={state}
-              command={command}
-              busy={busy}
-              onOpen={openCustomer}
-              onSource={showSource}
+              request={platform.request}
+              onNavigate={navigate}
+              onAction={(a) => {
+                if (a.kind === "customer") {
+                  const c = state.customers.find((c) => c.id === a.target);
+                  if (c) openCustomer(c, LEGACY_PRODUCT_ID);
+                } else if (a.kind === "product") {
+                  setAssistantProduct(a.target);
+                  navigate("products");
+                } else navigate(a.target);
+              }}
             />
           )}
           {view === "customers" && (
@@ -579,6 +586,8 @@ export default function Home() {
           )}
           {view === "products" && (
             <ProductLibrary
+              initialProductId={assistantProduct}
+              onInitialProductUsed={() => setAssistantProduct(null)}
               key={scopeKey}
               state={state}
               canWrite={canWrite}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Yince private AI adapter socket
+[Socket]
+ListenStream=/run/yince-ai.sock
+SocketUser=yince-ai
+SocketGroup=yince-api
+SocketMode=0660
+RemoveOnStop=true
+[Install]
+WantedBy=sockets.target

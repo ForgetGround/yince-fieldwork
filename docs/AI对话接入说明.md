@@ -1,0 +1,53 @@
+# AI 对话式首页（2026-09-30）
+
+## 交互与范围
+
+首页顶部保留跟进进度、大字号待办、待审查数量和三个优先跟进项目，均可进入业务页面。下方使用对话引导，默认“简洁回答”，需要步骤时切换“生成方案”。方案卡片展示步骤、引用依据及客户作战单／指定产品／跟进模块入口。新对话与最近对话恢复按用户、工作空间隔离。
+
+模型使用 DeepSeek 官方接口实际可用的 `deepseek-flash`，关闭 thinking，简洁／方案最大输出分别为 1200／2400 tokens。默认提示模型用 80–180 字直接回答，最多附一个方案；方案模式最多三个。没有实现流式逐字显示，等待完成后校验并展示。模型失败时明确报错、恢复输入，不以本地假回答冒充调用成功。
+
+AI 只生成草稿与页面入口，不调用业务写入命令，不自动创建任务、审批、发送电话／微信消息。规则匹配仍由既有后端确定性规则引擎完成，模型不能修改匹配结果。具体沟通和跟进沿用人工确认流程。
+
+## 数据与权限
+
+1. API 先检查会话、工作空间成员及角色，再通过现有 `readState` 获取可见数据。
+2. 上下文最多包含 15 位可见客户；问题明确提及的可见客户优先加入。输入包含业务编号、行业、联系优先级、到期天数、经营年限、需求是否存在、缺项数量和产品匹配汇总，以及产品规则来源。不会送出存储的电话、微信、地址、坐标、负责人、原始拜访记录或客户需求全文。
+3. 用户主动输入的对话仍会发送给 DeepSeek；系统只对常见手机号、身份证号、长账户号和密钥格式做基础遮盖，不能保证识别任意敏感内容。界面提示只输入脱敏业务信息。
+4. 每次回答使用最新可见数据；历史对话不能取代当前数据。权限角色或可见客户集合变化后，旧对话不再恢复，进行中的回答不落库，要求重新开启对话。
+5. 模型仅返回 JSON 草稿与引用 ID；后端使用 Zod 校验结构，并将跳转和引用 ID 限制在本次允许集合内。不能生成任意 URL，也不能借此绕过目标页权限。引用可追溯不等于模型文字已经通过事实核验，仍显示“建议待核实”。
+6. PostgreSQL `assistant_conversations` 保存最近十轮；表按空间启用 RLS，查询同时限制用户。全局审计仅保存模型、模式、token 数和对话 ID，不扩散私人问答全文。
+
+## 隔离与限额
+
+业务 API 保持 `RestrictAddressFamilies=AF_UNIX` 和 `IPAddressDeny=any`。新建独立 `yince-ai` 用户、服务、目录和私有 Unix socket，由适配服务访问固定 DeepSeek HTTPS 地址。API Key 只配置在 root 可读的 `/etc/yince-ai.env`，不进入浏览器、代码库或公开示例。
+
+- API：每用户每分钟 8 次；每空间每日 200 次，失败调用同样占用当天配额。
+- 适配服务：最多 2 个并发请求，provider 超时 15 秒，API socket 超时 18 秒。
+- 提交长度不超过 2000 字符；同一对话拒绝并发提交。
+- 对话保留最近 10 轮，向模型发送最近 5 轮；方案步骤和引用数量均有上限。
+
+## 本地运行
+
+先在隔离测试库执行 `server/migrations/003_assistant.sql`。复制 `deploy/yince-ai.env.example` 到 Git 忽略的私有环境文件，填入自己的 Key，并设置 `AI_SOCKET=/tmp/yince-ai-dev.sock`。API 环境文件也设置同一 socket。
+
+```sh
+node --env-file=work/ai-test.env server/ai-gateway.ts
+npm run dev:api
+npm run dev:vps
+```
+
+不要把正式 Key 放在 `NEXT_PUBLIC_*`、截图、示例或命令行参数里。
+
+## 生产部署
+
+1. 备份独立 PostgreSQL 数据库，执行迁移 003；旧版本 API 不依赖新表，可直接回滚。
+2. 适配服务独立安装 `server/ai-gateway.ts`、Zod 3.25.76、Node.js 24+ 和 `type: module` package.json，放在 `/srv/yince-ai/releases/<版本>`；通过 `current` 链接切换。
+3. 安装 `deploy/yince-ai.service`、`.socket`，配置 root:root 0600 的 `/etc/yince-ai.env`，创建独立系统用户；socket 为 yince-ai:yince-api 0660。
+4. 开启私有 AI socket／service，再发布 API 和静态站。无需向公网增加监听端口，无需修改其他项目服务或共享 Nginx 配置。
+5. 验证真实模型响应、登录／CSRF、对话持久化、页面跳转和其他项目进程／配置不变。
+
+## 验证
+
+`npm test` 覆盖输入校验、上下文最小化和引用白名单；`tests/assistant.integration.test.ts` 在明确命名的 `yince_test` 库运行，使用模拟 provider，覆盖会话／空间隔离、CSRF、历史、权限变化、并发冲突和错误恢复。真实 Flash 调用及方案跳转另作人工浏览器验收，不将调用密钥保存到测试文件。
+
+官方接口参考：[模型列表](https://api-docs.deepseek.com/api/list-models/)、[JSON 输出](https://api-docs.deepseek.com/guides/json_mode/)、[Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/)。

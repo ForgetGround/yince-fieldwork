@@ -1,0 +1,45 @@
+[Unit]
+Description=Yince isolated DeepSeek adapter
+Requires=yince-ai.socket
+After=network-online.target yince-ai.socket
+[Service]
+Type=simple
+User=yince-ai
+Group=yince-ai
+WorkingDirectory=/srv/yince-ai/current
+EnvironmentFile=/etc/yince-ai.env
+Environment=NODE_ENV=production
+ExecStart=/srv/yince-ai/runtime/node --max-old-space-size=96 /srv/yince-ai/current/server/ai-gateway.ts
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @raw-io @obsolete
+IPAddressDeny=localhost
+IPAddressAllow=127.0.0.53
+InaccessiblePaths=/var/lib /var/www /opt /etc/nginx /etc/letsencrypt /etc/yince-api.env /srv/yince-api /srv/yince-db /run/yince-db /run/yince-api.sock -/etc/xcoria-orders.env -/etc/sing-box -/run/dbus -/run/systemd/private
+MemoryMax=160M
+CPUQuota=20%
+TasksMax=24
+LimitNOFILE=256
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yince-ai
+[Install]
+WantedBy=multi-user.target

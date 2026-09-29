@@ -1,6 +1,6 @@
 "use client";
 import { canManageProductRules } from "@/lib/fieldwork";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, FileText, Search } from "lucide-react";
 import { PageTitle, ProductRules } from "./workbench-views";
 import type { PlatformState, Product } from "@/lib/platform";
@@ -15,6 +15,8 @@ import { Input } from "./ui/input";
 const colors = { candidate: "teal", needsInfo: "amber", mismatch: "gray" };
 export function ProductLibrary({
   state,
+  initialProductId,
+  onInitialProductUsed,
   onOpenCustomer,
   onSource,
   onActivate,
@@ -22,6 +24,8 @@ export function ProductLibrary({
   canWrite,
 }: {
   state: PlatformState;
+  initialProductId?: string | null;
+  onInitialProductUsed?: () => void;
   onOpenCustomer: (c: Customer, productId: string) => void;
   onSource: (r: Rule) => void;
   onActivate: (id: string) => void;
@@ -31,6 +35,18 @@ export function ProductLibrary({
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState("customers");
   const [query, setQuery] = useState("");
+  useEffect(() => {
+    if (
+      initialProductId &&
+      state.products.some((p) => p.id === initialProductId)
+    ) {
+      setSelected(initialProductId);
+      setTab("customers");
+      setFilter("all");
+      setQuery("");
+      onInitialProductUsed?.();
+    }
+  }, [initialProductId, state.products, onInitialProductUsed]);
   const [filter, setFilter] = useState("all");
   const product = state.products.find((p) => p.id === selected);
   const matches = product ? state.productMatches?.[product.id] || [] : [];

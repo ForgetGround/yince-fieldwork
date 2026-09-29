@@ -20,7 +20,9 @@ export function FieldworkHome({
   onOpen,
   onSource,
   onNavigate,
+  embedded = false,
 }: {
+  embedded?: boolean;
   state: PlatformState;
   command: Command;
   busy: boolean;
@@ -54,11 +56,22 @@ export function FieldworkHome({
   );
   return (
     <>
-      <div className="field-home-header">
+      {!embedded && (
+        <>
+          <div className="field-home-header">
+            <div>
+              <span className="eyebrow">今日工作</span>
+              <h1>展业工作台</h1>
+              <p>查看待办，准备下一次有效沟通。</p>
+            </div>
+          </div>
+          <DashboardSummary state={state} onNavigate={onNavigate} />
+        </>
+      )}
+      <section className="field-preparation-context" aria-label="本次沟通对象">
         <div>
-          <span className="eyebrow">今日工作</span>
-          <h1>展业工作台</h1>
-          <p>查看待办，准备下一次有效沟通。</p>
+          <h2>本次沟通准备</h2>
+          <p>客户与产品仅用于下方沟通重点、问询和资料准备。</p>
         </div>
         <div className="field-context">
           <label>
@@ -90,8 +103,7 @@ export function FieldworkHome({
             </select>
           </label>
         </div>
-      </div>
-      <DashboardSummary state={state} onNavigate={onNavigate} />
+      </section>
       <div className="field-home-grid">
         <section className="panel field-card">
           <div className="field-card-title">

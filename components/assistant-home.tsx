@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUp,
   ArrowUpRight,
@@ -34,7 +34,9 @@ export function AssistantHome({
   request,
   onNavigate,
   onAction,
+  preparation,
 }: {
+  preparation?: ReactNode;
   state: PlatformState;
   request: Request;
   onNavigate: (view: string) => void;
@@ -243,6 +245,19 @@ export function AssistantHome({
           </div>
         ))}
       </div>
+      {preparation && (
+        <details className="assistant-preparation">
+          <summary>
+            <span>
+              <FileText size={17} />
+              访前准备
+            </span>
+            <small>选择客户与产品，准备本次沟通</small>
+            <ChevronRight size={16} />
+          </summary>
+          <div className="assistant-preparation-body">{preparation}</div>
+        </details>
+      )}
       <section className="assistant-chat panel">
         <header>
           <div>

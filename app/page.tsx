@@ -69,15 +69,16 @@ import {
 } from "@/lib/workbench";
 import { CustomerMap } from "@/components/customer-map";
 import { BrandLogo } from "@/components/brand-logo";
+import { FieldworkHome } from "@/components/fieldwork-home";
 import { AssistantHome } from "@/components/assistant-home";
 import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
 const nav = [
   { id: "overview", name: "展业工作台", icon: LayoutDashboard },
-  { id: "followups", name: "访后跟进", icon: ClipboardList },
-  { id: "products", name: "产品库", icon: ScanLine },
   { id: "customers", name: "客户库", icon: Users },
+  { id: "products", name: "产品库", icon: ScanLine },
+  { id: "followups", name: "访后跟进", icon: ClipboardList },
   { id: "reviews", name: "审查与转派", icon: FileCheck },
   { id: "team", name: "团队进度", icon: TrendingUp },
   { id: "audit", name: "合规与审计", icon: ShieldCheck },
@@ -351,8 +352,7 @@ export default function Home() {
         </SidebarHeader>
         <SidebarContent>
           {[
-            { label: "日常工作", items: nav.slice(0, 2) },
-            { label: "产品与客户", items: nav.slice(2, 4) },
+            { label: "展业", items: nav.slice(0, 4) },
             { label: "协作与管理", items: nav.slice(4) },
           ].map((group) => (
             <SidebarGroup key={group.label} className="dashboard-nav-group">
@@ -450,6 +450,18 @@ export default function Home() {
               key={scopeKey}
               state={state}
               request={platform.request}
+              preparation={
+                <FieldworkHome
+                  key={scopeKey}
+                  embedded
+                  state={state}
+                  command={command}
+                  busy={busy}
+                  onOpen={openCustomer}
+                  onSource={showSource}
+                  onNavigate={navigate}
+                />
+              }
               onNavigate={navigate}
               onAction={(a) => {
                 if (a.kind === "customer") {
@@ -487,8 +499,7 @@ export default function Home() {
                 <div className="panel-title">
                   <div>
                     <h2>
-                      客户库{" "}
-                      <span className="soft-tag">{filtered.length}</span>
+                      客户库 <span className="soft-tag">{filtered.length}</span>
                     </h2>
                     <p>
                       {role === "manager"

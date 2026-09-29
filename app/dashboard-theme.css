@@ -1198,3 +1198,83 @@ tr:hover td {
     flex-wrap: wrap;
   }
 }
+
+/* Customer/product context belongs to the preparation section, below totals. */
+.assistant-preparation {
+  margin: 0 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+.assistant-preparation > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  list-style: none;
+  cursor: pointer;
+  color: #334155;
+}
+.assistant-preparation > summary::-webkit-details-marker {
+  display: none;
+}
+.assistant-preparation > summary > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.assistant-preparation > summary small {
+  color: #64748b;
+  font-size: 11px;
+}
+.assistant-preparation > summary > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.assistant-preparation[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.assistant-preparation-body {
+  padding: 0 18px 18px;
+}
+.field-preparation-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.field-preparation-context h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+}
+.field-preparation-context p {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #64748b;
+}
+.field-preparation-context .field-context {
+  max-width: 100%;
+}
+@media (max-width: 767px) {
+  .assistant-preparation > summary {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px;
+  }
+  .assistant-preparation > summary small {
+    flex-basis: 70%;
+  }
+  .assistant-preparation-body {
+    padding: 0 12px 12px;
+  }
+  .field-preparation-context .field-context {
+    width: 100%;
+  }
+}

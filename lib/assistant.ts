@@ -14,6 +14,7 @@ export type AssistantPlan = {
 };
 export type AssistantAnswer = {
   answer: string;
+  notice?: string;
   plans: AssistantPlan[];
   actions: AssistantAction[];
   sources: AssistantSource[];

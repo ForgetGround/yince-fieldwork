@@ -205,6 +205,11 @@ test("AI API isolation, private history, validated navigation and failure recove
           threadId,
         });
         assert.equal(retry.status, 200);
+        const previousAnswer = last.messages.find(
+          (m: any) => m.role === "assistant",
+        );
+        assert.equal(JSON.parse(previousAnswer.content).answer, "请核实需求。");
+        assert.ok(Array.isArray(JSON.parse(previousAnswer.content).plans));
         assert.equal((await manager.call(endpoint)).body.messages.length, 4);
       },
     );

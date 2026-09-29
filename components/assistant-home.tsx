@@ -301,6 +301,11 @@ export function AssistantHome({
                 {m.role === "assistant" && <BrandLogo size={25} />}
                 <div className="assistant-message-body">
                   <p>{m.content}</p>
+                  {m.result?.notice && (
+                    <small className="assistant-response-label">
+                      {m.result.notice}
+                    </small>
+                  )}
                   {m.result?.plans.map((p, k) => (
                     <button
                       className="assistant-plan-card"

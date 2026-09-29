@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeOutput } from "./assistant-output.ts";
 import type { PlatformState } from "../lib/platform.ts";
 import type {
   AssistantAction,
@@ -143,27 +144,13 @@ export function buildContext(s: PlatformState, question: string) {
     actions,
   };
 }
-const outputSchema = z.object({
-  answer: z.string().trim().min(1).max(6000),
-  plans: z
-    .array(
-      z.object({
-        title: z.string().max(80),
-        summary: z.string().max(500),
-        steps: z.array(z.string().max(500)).max(8),
-        actionIds: z.array(z.string()).max(6),
-        sourceIds: z.array(z.string()).max(8),
-      }),
-    )
-    .max(3),
-});
 export function validateAnswer(
   raw: unknown,
   context: ReturnType<typeof buildContext>,
   mode: "simple" | "plan",
   model: string,
 ): AssistantAnswer {
-  const result = outputSchema.parse(raw);
+  const result = normalizeOutput(raw);
   const aid = new Set(context.actions.map((a) => a.id)),
     sid = new Set(context.sources.map((s) => s.id));
   const plans = result.plans.map((p) => ({
@@ -175,6 +162,7 @@ export function validateAnswer(
     usedSources = new Set(plans.flatMap((p) => p.sourceIds));
   return {
     answer: result.answer,
+    ...(result.notice ? { notice: result.notice } : {}),
     plans,
     actions: context.actions.filter((a) => usedActions.has(a.id)),
     sources: context.sources.filter((s) => usedSources.has(s.id)),

@@ -65,6 +65,7 @@ import {
   opportunity,
   downloadJson,
 } from "@/lib/workbench";
+import { CustomerMap } from "@/components/customer-map";
 import { FieldworkHome } from "@/components/fieldwork-home";
 import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
@@ -458,6 +459,7 @@ export default function Home() {
           )}
           {view === "overview" && (
             <FieldworkHome
+              onNavigate={navigate}
               key={scopeKey}
               state={state}
               command={command}
@@ -690,6 +692,43 @@ export default function Home() {
           rules={state.rules.filter((r) => productIdOf(r) === briefProductId)}
           productName={
             state.products.find((p) => p.id === briefProductId)?.name
+          }
+          enterprise={
+            <details className="enterprise-info">
+              <summary>
+                企业信息与位置 <span>查看经营信息、地图与导航</span>
+              </summary>
+              <dl className="enterprise-facts">
+                <div>
+                  <dt>客户编号</dt>
+                  <dd>{customer.id}</dd>
+                </div>
+                <div>
+                  <dt>所属行业</dt>
+                  <dd>{customer.industry}</dd>
+                </div>
+                <div>
+                  <dt>经营年限</dt>
+                  <dd>
+                    {customer.operatingYears === null
+                      ? "待核实"
+                      : `${customer.operatingYears} 年`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>负责人</dt>
+                  <dd>{customer.ownerName || "未分配"}</dd>
+                </div>
+              </dl>
+              <CustomerMap
+                key={scopeKey + customer.id}
+                state={state}
+                selected={customer}
+                onSelect={setCustomerId}
+                command={command}
+                busy={busy}
+              />
+            </details>
           }
           referenceDate={state.referenceDate}
           prepared={prepared}

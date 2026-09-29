@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
   MessageSquare,
   HelpCircle,
@@ -11,7 +11,6 @@ import type { PlatformState } from "@/lib/platform";
 import { ranked, type Customer, type Rule } from "@/lib/workbench";
 import { LEGACY_PRODUCT_ID } from "@/lib/product-matching";
 import { visitPrompts } from "@/lib/fieldwork";
-import { CustomerMap } from "./customer-map";
 type Command = <T = unknown>(data: unknown) => Promise<T>;
 export function FieldworkHome({
   state,
@@ -19,16 +18,17 @@ export function FieldworkHome({
   busy,
   onOpen,
   onSource,
+  onNavigate,
 }: {
   state: PlatformState;
   command: Command;
   busy: boolean;
   onOpen: (c: Customer, productId: string) => void;
   onSource: (r: Rule) => void;
+  onNavigate: (view: "followups" | "reviews") => void;
 }) {
   const [selected, setSelected] = useState("");
   const [productId, setProductId] = useState(LEGACY_PRODUCT_ID);
-  const select = useCallback((id: string) => setSelected(id), []);
   const customers = ranked(state.customers);
   const customer = customers.find((c) => c.id === selected) || customers[0];
   const product =
@@ -89,6 +89,50 @@ export function FieldworkHome({
             </select>
           </label>
         </div>
+      </div>
+      <div className="field-todos" aria-label="待办概览">
+        <button
+          className="panel field-todo"
+          onClick={() => onNavigate("followups")}
+        >
+          <span>待办任务</span>
+          <strong>
+            {state.tasks.filter((t) => !t.done).length}
+            <small>项</small>
+          </strong>
+          <span>
+            查看待跟进任务 <ArrowRight size={15} />
+          </span>
+        </button>
+        <button
+          className="panel field-todo overdue"
+          onClick={() => onNavigate("followups")}
+        >
+          <span>逾期待办</span>
+          <strong>
+            {
+              state.tasks.filter((t) => !t.done && t.due < state.referenceDate)
+                .length
+            }
+            <small>项</small>
+          </strong>
+          <span>
+            优先处理超期事项 <ArrowRight size={15} />
+          </span>
+        </button>
+        <button
+          className="panel field-todo"
+          onClick={() => onNavigate("reviews")}
+        >
+          <span>待审查事项</span>
+          <strong>
+            {state.reviews.filter((r) => r.status === "pending").length}
+            <small>项</small>
+          </strong>
+          <span>
+            查看审查与转派 <ArrowRight size={15} />
+          </span>
+        </button>
       </div>
       <div className="field-home-grid">
         <section className="panel field-card">
@@ -178,13 +222,6 @@ export function FieldworkHome({
           busy={busy}
           command={command}
           onOpen={() => onOpen(customer, product.id)}
-        />
-        <CustomerMap
-          state={state}
-          selected={customer}
-          onSelect={select}
-          command={command}
-          busy={busy}
         />
       </div>
     </>

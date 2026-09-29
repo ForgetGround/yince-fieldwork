@@ -641,6 +641,7 @@ export function CustomerDetail({
   busy = false,
   canWrite = true,
   children,
+  enterprise,
   referenceDate = DEMO_DATE,
 }: {
   customer: Customer | null;
@@ -654,6 +655,7 @@ export function CustomerDetail({
   busy?: boolean;
   canWrite?: boolean;
   children?: React.ReactNode;
+  enterprise?: React.ReactNode;
   referenceDate?: string;
 }) {
   const [confirmed, setConfirmed] = useState(false);
@@ -675,6 +677,7 @@ export function CustomerDetail({
           </SheetDescription>
         </SheetHeader>
         <div className="battle-content">
+          {enterprise}
           {c.daysToMaturity !== null && (
             <div
               className={

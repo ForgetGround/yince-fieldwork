@@ -190,7 +190,7 @@ export function CustomerMap({
       <div className="field-card-title">
         <h2>
           <MapPin size={18} />
-          地图服务
+          企业位置与导航
         </h2>
         <span className="muted-copy">{located.length} 个已登记地点</span>
       </div>

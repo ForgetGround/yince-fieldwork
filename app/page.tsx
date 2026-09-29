@@ -271,7 +271,7 @@ export default function Home() {
         {loading ? (
           <div className="boot-screen">
             <BrandLogo size={44} />
-            <h2>银策 YINGCE</h2>
+            <h2>银册星图</h2>
             <p>正在连接你的工作空间…</p>
           </div>
         ) : (
@@ -337,13 +337,13 @@ export default function Home() {
           <button
             className="brand"
             onClick={() => navigate("overview")}
-            aria-label="银策编译器首页"
+            aria-label="银册星图首页"
           >
             <div className="brand-mark">
               <BrandLogo size={38} />
             </div>
             <div>
-              <strong>银策编译器</strong>
+              <strong>银册星图</strong>
               <span>
                 展业版 <i>3.0</i>
               </span>
@@ -674,7 +674,7 @@ export default function Home() {
                     action: "导出审计",
                     target: "当前空间可见审计记录",
                   });
-                  downloadJson("银策-工作空间审计.json", {
+                  downloadJson("银册星图-工作空间审计.json", {
                     workspace: state.workspace.name,
                     audit: state.audit,
                     rules: state.rules,
@@ -686,7 +686,7 @@ export default function Home() {
             />
           )}
           <footer className="workspace-footer">
-            <span>银策 YINGCE · 让每一步展业可解释、可追踪</span>
+            <span>银册星图 · 让每一步展业可解释、可追踪</span>
             <span>
               <Database size={13} />{" "}
               {busy ? "正在保存…" : "已连接工作空间数据库"}

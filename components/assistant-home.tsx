@@ -262,7 +262,7 @@ export function AssistantHome({
         <header>
           <div>
             <BrandLogo size={30} />
-            <strong>银策助手</strong>
+            <strong>星图助手</strong>
             <span>把需求变成下一步</span>
           </div>
           <button
@@ -384,7 +384,7 @@ export function AssistantHome({
           }}
         >
           <textarea
-            aria-label="向银策助手提问"
+            aria-label="向星图助手提问"
             placeholder="例如：帮我为 KH-001 准备续贷沟通方案，列出需要核实的问题…"
             value={draft}
             maxLength={2000}

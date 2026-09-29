@@ -1,4 +1,4 @@
-# 银策编译器 · 展业版 | 银策 YINGCE
+# 银册星图 · 展业版
 
 **面向小微客户经理的可解释展业作战台。** 将制度规则、客户机会、访前准备、沟通记录与访后跟进连接起来，让每一次联系都有依据、每一步推进可以回溯。
 
@@ -33,7 +33,7 @@
 | 访后闭环 | 从原始记录提取纪要草稿，人工修改确认后更新客户信息、建立任务；材料全部补齐可显式确认 |
 | 审查与提醒 | 规则／纪要／客户转派申请；禁止提交人自审；转派同步未完成任务；站内待办与审查通知 |
 | 团队进度 | 六阶段展业转化漏斗、负责人工作量、逾期待办和闭环进度；均由实际保存的业务记录计算 |
-| 网关与水印 | Nginx 按 IP 限流、API 按用户／空间限流；429 与 Retry-After；全页面“银策YINGCE”水印 |
+| 网关与水印 | Nginx 按 IP 限流、API 按用户／空间限流；429 与 Retry-After；全页面“银册星图”水印 |
 
 ## 管理员入口
 
@@ -61,7 +61,7 @@
 
 ```mermaid
 flowchart LR
-  U[浏览器 · 银策YINGCE水印] --> G[Nginx HTTPS网关 / 限流]
+  U[浏览器 · 银册星图水印] --> G[Nginx HTTPS网关 / 限流]
   G --> W[独立静态前端]
   G --> A[Node.js API / 会话 / 权限 / 审查]
   A --> I[私有 Unix socket · AI 适配服务]
@@ -122,4 +122,4 @@ node --env-file=work/test-api.env --test tests/api.integration.test.ts
 
 ### 界面模板与品牌
 
-界面采用 [shadcn/ui Dashboard-01](https://ui.shadcn.com/blocks) 的侧栏与卡片结构，适配银策蓝灰主题，使用原创 SVG Logo。模板遵循 MIT 许可，详见 [设计模板选型与适配](docs/设计模板选型.md) 和 [第三方许可](vendor/shadcn-ui-LICENSE.md)。
+界面采用 [shadcn/ui Dashboard-01](https://ui.shadcn.com/blocks) 的侧栏与卡片结构，适配星图蓝灰主题，使用原创 SVG Logo。模板遵循 MIT 许可，详见 [设计模板选型与适配](docs/设计模板选型.md) 和 [第三方许可](vendor/shadcn-ui-LICENSE.md)。

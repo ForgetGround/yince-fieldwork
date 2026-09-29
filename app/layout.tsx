@@ -3,7 +3,7 @@ import "./globals.css";
 import "./dashboard-theme.css";
 
 export const metadata: Metadata = {
-  title: "银策编译器 · 展业版",
+  title: "银册星图 · 展业版",
   description:
     "面向小微客户经理的可解释展业工作台。制度编译、机会识别、访前准备、访后闭环。",
   other: {
@@ -26,7 +26,7 @@ export default function RootLayout({
         {children}
         <div className="brand-watermark" aria-hidden="true">
           {Array.from({ length: 48 }, (_, i) => (
-            <span key={i}>银策YINGCE</span>
+            <span key={i}>银册星图</span>
           ))}
         </div>
       </body>

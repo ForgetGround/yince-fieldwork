@@ -50,7 +50,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { priorityLevel, sceneTags } from "../lib/platform";
-import { ruleFact } from "@/lib/product-matching";
+import { ruleFact, LEGACY_PRODUCT_ID } from "@/lib/product-matching";
+import { visitPrompts } from "@/lib/fieldwork";
 import type { Product, PlatformState } from "../lib/platform";
 import {
   type State,
@@ -632,6 +633,7 @@ export function ProductRules({
 export function CustomerDetail({
   customer,
   productName = PRODUCT,
+  productId = LEGACY_PRODUCT_ID,
   rules,
   onClose,
   onSource,
@@ -646,6 +648,7 @@ export function CustomerDetail({
 }: {
   customer: Customer | null;
   productName?: string;
+  productId?: string;
   rules: Rule[];
   onClose: () => void;
   onSource: (r: Rule) => void;
@@ -661,6 +664,7 @@ export function CustomerDetail({
   const [confirmed, setConfirmed] = useState(false);
   if (!customer) return null;
   const c = customer;
+  const prompts = visitPrompts(c, productId, rules);
   const active = rules.filter((r) => r.status === "active");
   const o = opportunity(c);
   const passed = active.filter((r) => evaluateRule(c, r) === "pass").length;
@@ -805,37 +809,18 @@ export function CustomerDetail({
           <section className="brief-section">
             <h3>沟通时重点询问</h3>
             <ol className="question-list">
-              <li>
-                {c.daysToMaturity !== null
-                  ? `现有贷款${c.daysToMaturity >= 0 ? `将在 ${c.daysToMaturity} 天后到期` : "已过到期日"}，目前有哪些还款及资金安排？`
-                  : "近期是否有采购、备货或日常经营周转需求？"}
-              </li>
-              {active
-                .filter((r) => evaluateRule(c, r) !== "pass")
-                .map((r) => (
-                  <li key={r.id}>
-                    需核实：{r.title}（{ruleFact(c, r)}）
-                  </li>
-                ))}
-              <li>资金的具体用途、预计金额和使用时间是什么？</li>
-              <li>近半年经营与结算情况是否变化，能否提供相应材料？</li>
-              {c.operatingYears === null && (
-                <li>企业实际持续经营了多久，有哪些可以核实的证明？</li>
-              )}
-              <li>是否愿意按流程授权核实必要的经营与信用信息？</li>
+              {prompts.questions.map((q) => (
+                <li key={q.id}>
+                  {q.text}
+                  <p className="micro-copy">{q.basis}</p>
+                </li>
+              ))}
             </ol>
           </section>
           <section className="brief-section">
             <h3>提前准备与待补资料</h3>
             <div className="material-list">
-              {[
-                ...new Set([
-                  ...c.missing,
-                  "有效营业执照",
-                  "经营情况及资金用途说明",
-                  "经授权的经营流水摘要",
-                ]),
-              ].map((m) => (
+              {prompts.materials.map((m) => (
                 <span key={m}>
                   <ClipboardList size={14} />
                   {m}
@@ -891,10 +876,10 @@ export function CustomerDetail({
           </span>
           <button
             className="btn primary"
-            disabled={!prepared || busy || !canWrite}
+            disabled={busy || !canWrite}
             onClick={() => onVisit(c)}
           >
-            沟通与访后归纳
+            进入该客户的访后跟进
             <ArrowRight size={16} />
           </button>
         </div>

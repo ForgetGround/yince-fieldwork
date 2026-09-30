@@ -86,3 +86,86 @@ test("首页问题按产品规则生成，未知信息进入问询，不串产�
   assert.ok(!p.questions.some((q) => q.id === "B-rule"));
   assert.ok(p.materials.includes("有效营业执照"));
 });
+
+import {
+  linkedBrief,
+  latestBrief,
+  taskVisit,
+  communicationVisit,
+  inFollowupScope,
+} from "../lib/visit-context.ts";
+import type { Brief, Communication } from "../lib/platform.ts";
+import type { Visit, Task } from "../lib/workbench.ts";
+test("访前与访后按客户、产品和原快照关联，不回退到其他产品或最新快照", () => {
+  const briefs = [
+    { id: "b1", customerId: "KH-001", productId: "tax", created: "2026-09-01" },
+    {
+      id: "b2",
+      customerId: "KH-001",
+      productId: "cash",
+      created: "2026-09-03",
+    },
+    { id: "b3", customerId: "KH-001", productId: "tax", created: "2026-09-02" },
+  ] as Brief[];
+  assert.equal(latestBrief(briefs, "KH-001", "tax")?.id, "b3");
+  assert.equal(linkedBrief(briefs, "KH-001", "b1")?.id, "b1");
+  assert.equal(linkedBrief(briefs, "KH-002", "b1"), undefined);
+  assert.equal(linkedBrief(briefs, "KH-001", "missing"), undefined);
+  assert.equal(latestBrief(briefs, "KH-001", "other"), undefined);
+  assert.ok(
+    !inFollowupScope("KH-001", briefs[1], {
+      customerId: "KH-001",
+      productId: "tax",
+      status: "all",
+    }),
+  );
+  assert.ok(
+    !inFollowupScope("KH-001", undefined, {
+      customerId: "KH-001",
+      productId: "tax",
+      status: "all",
+    }),
+  );
+});
+test("任务与沟通打开原纪要，同客户不同快照不串用", () => {
+  const visit = {
+    id: "v1",
+    customerId: "KH-001",
+    briefId: "b1",
+    communicationId: "c1",
+    raw: "原始记录",
+    channel: "phone",
+  } as Visit;
+  const task = {
+    id: "visit:v1",
+    customerId: "KH-001",
+    source: "纪要 v1",
+  } as Task;
+  assert.equal(taskVisit(task, [visit])?.id, "v1");
+  assert.equal(
+    taskVisit({ ...task, customerId: "KH-002" }, [visit]),
+    undefined,
+  );
+  const communication = {
+    id: "c1",
+    customerId: "KH-001",
+    briefId: "b1",
+    content: "原始记录",
+    channel: "phone",
+  } as Communication;
+  assert.equal(communicationVisit(communication, [visit])?.id, "v1");
+  assert.equal(
+    communicationVisit({ ...communication, briefId: "b2" }, [visit]),
+    undefined,
+  );
+  assert.equal(
+    communicationVisit({ ...communication, id: "c2" }, [visit]),
+    undefined,
+  );
+  assert.equal(
+    communicationVisit(communication, [
+      { ...visit, communicationId: undefined },
+    ])?.id,
+    "v1",
+  );
+});

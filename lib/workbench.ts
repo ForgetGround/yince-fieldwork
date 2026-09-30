@@ -78,6 +78,7 @@ export type Task = {
   source: string;
 };
 export type Visit = {
+  communicationId?: string;
   materialsComplete?: boolean;
   briefId?: string;
   actorId?: string;

@@ -1,4 +1,9 @@
 "use client";
+import {
+  linkedBrief,
+  briefProductId,
+  communicationVisit,
+} from "@/lib/visit-context";
 import { BrandLogo } from "@/components/brand-logo";
 import { canReviewProductRules } from "@/lib/fieldwork";
 import { useEffect, useState } from "react";
@@ -13,8 +18,6 @@ import {
   ClipboardCheck,
   GitBranch,
   Check,
-  Clock3,
-  RefreshCw,
   UserPlus,
   Send,
   FileCheck,
@@ -34,13 +37,12 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
 import { PageTitle, Empty } from "./workbench-views";
-import { type Customer, type Visit, downloadJson } from "../lib/workbench";
+import { type Customer, type Visit } from "../lib/workbench";
 import {
   type PlatformState,
   type Session,
   type Role,
   type Member,
-  type Brief,
   type Communication,
   roleNames,
   stages,
@@ -858,7 +860,7 @@ export function NotificationCenter({
   open: boolean;
   onClose: () => void;
   command: RunCommand;
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, customerId?: string) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -885,7 +887,10 @@ export function NotificationCenter({
                           type: "notification.read",
                           notificationId: n.id,
                         });
-                      onNavigate(n.kind === "review" ? "reviews" : "followups");
+                      onNavigate(
+                        n.kind === "review" ? "reviews" : "followups",
+                        n.target,
+                      );
                       onClose();
                     } catch (e) {
                       toast.error((e as Error).message);
@@ -918,11 +923,13 @@ export function NotificationCenter({
 
 export function CustomerExtras({
   customer: c,
+  productId,
   state,
   command,
   busy,
 }: {
   customer: Customer;
+  productId: string;
   state: PlatformState;
   command: RunCommand;
   busy: boolean;
@@ -933,11 +940,7 @@ export function CustomerExtras({
     state.workspace.role,
   );
   const history = state.briefs
-    .filter((b) => b.customerId === c.id)
-    .slice(-3)
-    .reverse();
-  const allCommunication = state.communications
-    .filter((x) => x.customerId === c.id)
+    .filter((b) => b.customerId === c.id && briefProductId(b) === productId)
     .slice(-3)
     .reverse();
   return (
@@ -1026,24 +1029,6 @@ export function CustomerExtras({
                   {b.rules.length} 条规则快照
                 </small>
                 <p>{b.checklist.join("；")}</p>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-      {allCommunication.length > 0 && (
-        <section className="brief-section">
-          <h3>最近沟通记录</h3>
-          {allCommunication.map((x) => (
-            <div className="history-line" key={x.id}>
-              <MessageCircle size={16} />
-              <div>
-                <strong>
-                  {x.actor} · {channelLabel[x.channel]} ·{" "}
-                  {outcomeLabel[x.outcome]}
-                </strong>
-                <small>{new Date(x.created).toLocaleString("zh-CN")}</small>
-                <p>{x.content}</p>
               </div>
             </div>
           ))}
@@ -1179,13 +1164,14 @@ const outcomeLabel = {
   scheduled: "已预约",
 };
 export function CommunicationDialog({
-  productId,
+  briefId,
   customer: c,
   state,
   command,
   busy,
   onClose,
   existingVisit,
+  existingCommunication,
 }: {
   customer: Customer;
   state: PlatformState;
@@ -1193,23 +1179,38 @@ export function CommunicationDialog({
   busy: boolean;
   onClose: () => void;
   existingVisit?: Visit;
-  productId?: string;
+  existingCommunication?: Communication;
+  briefId?: string;
 }) {
-  const latest = state.briefs
-    .filter(
-      (b) =>
-        b.customerId === c.id &&
-        (!productId || (b.productId || "PRODUCT-CASHFLOW") === productId),
-    )
-    .slice(-1)[0];
-  const brief =
-    state.briefs.find((b) => b.id === existingVisit?.briefId) || latest;
+  const brief = linkedBrief(
+    state.briefs,
+    c.id,
+    existingVisit
+      ? existingVisit.briefId
+      : existingCommunication
+        ? existingCommunication.briefId
+        : briefId,
+  );
+  const originalCommunication =
+    existingCommunication ||
+    state.communications.find(
+      (r) =>
+        communicationVisit(r, existingVisit ? [existingVisit] : [])?.id ===
+          existingVisit?.id && !!existingVisit,
+    );
+  const [communication, setCommunication] = useState<Communication | undefined>(
+    originalCommunication,
+  );
   const [channel, setChannel] = useState<Communication["channel"]>(
-      existingVisit?.channel || "phone",
+      existingVisit?.channel || originalCommunication?.channel || "phone",
     ),
-    [outcome, setOutcome] = useState<Communication["outcome"]>("connected"),
-    [raw, setRaw] = useState(existingVisit?.raw || ""),
-    [saved, setSaved] = useState(!!existingVisit),
+    [outcome, setOutcome] = useState<Communication["outcome"]>(
+      originalCommunication?.outcome || "connected",
+    ),
+    [raw, setRaw] = useState(
+      existingVisit?.raw || originalCommunication?.content || "",
+    ),
+    [saved, setSaved] = useState(!!existingVisit || !!originalCommunication),
     [draft, setDraft] = useState<Visit | null>(existingVisit || null),
     [ack, setAck] = useState(false);
   const canWrite = ["admin", "supervisor", "manager"].includes(
@@ -1228,24 +1229,41 @@ export function CommunicationDialog({
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="wide-dialog visit-dialog">
         <DialogHeader>
-          <DialogTitle>{c.id} · 沟通与访后归纳</DialogTitle>
+          <DialogTitle>{c.id} · 访后沟通与纪要</DialogTitle>
           <DialogDescription>
-            {brief?.productName || "经营流水类贷款"} · 关联访前快照{" "}
+            {brief?.productName || "产品关联待核实"} · 关联访前快照{" "}
             {brief?.id.slice(0, 8) || "未准备"}
             ，保留原始记录并推进后续任务。
           </DialogDescription>
         </DialogHeader>
         <div className="dialog-stepper">
-          <span className="done">1 访前准备</span>
+          <span className={brief ? "done" : ""}>1 访前准备</span>
           <ChevronRight size={13} />
           <span className={saved ? "done" : ""}>2 沟通记录</span>
           <ChevronRight size={13} />
           <span className={confirmed ? "done" : ""}>3 归纳与任务</span>
         </div>
         {!brief ? (
-          <p className="notice warning">
-            请先在作战单中核对并保存访前准备，再记录沟通。
-          </p>
+          <div>
+            <p className="notice warning">
+              未找到这条记录关联的访前快照。历史内容保留只读，不会改挂其他快照。
+            </p>
+            <h3>原始沟通记录</h3>
+            <p className="preserve-text">{raw || "暂无原始记录"}</p>
+            {existingVisit && (
+              <>
+                <h3>历史纪要</h3>
+                <p className="preserve-text">
+                  {existingVisit.summary || "尚未归纳"}
+                </p>
+                <h3>后续安排</h3>
+                <p>
+                  {existingVisit.nextAction || "未记录"}{" "}
+                  {existingVisit.nextDate}
+                </p>
+              </>
+            )}
+          </div>
         ) : (
           <>
             <div className="two-fields">
@@ -1253,7 +1271,7 @@ export function CommunicationDialog({
                 沟通渠道
                 <select
                   value={channel}
-                  disabled={!!draft || !canWrite}
+                  disabled={!!draft || saved || !canWrite}
                   onChange={(e) => {
                     setChannel(e.target.value as Communication["channel"]);
                     setSaved(false);
@@ -1270,7 +1288,7 @@ export function CommunicationDialog({
                 沟通结果
                 <select
                   value={outcome}
-                  disabled={!!draft || !canWrite}
+                  disabled={!!draft || saved || !canWrite}
                   onChange={(e) => {
                     setOutcome(e.target.value as Communication["outcome"]);
                     setSaved(false);
@@ -1289,8 +1307,8 @@ export function CommunicationDialog({
               <Textarea
                 value={raw}
                 rows={4}
-                disabled={!!draft || !canWrite}
-                maxLength={30000}
+                disabled={!!draft || saved || !canWrite}
+                maxLength={5000}
                 onChange={(e) => {
                   setRaw(e.target.value);
                   setSaved(false);
@@ -1302,6 +1320,7 @@ export function CommunicationDialog({
               <div className="inline-actions">
                 <button
                   className="text-btn"
+                  disabled={saved || busy}
                   onClick={() => {
                     setRaw(
                       `客户希望扩大采购，计划核实经营周转融资需求。客户询问材料要求。尚缺近6个月经营流水及采购合同。下次于${addDays(state.referenceDate, 2)}联系，跟进材料并核实实际用款时间。`,
@@ -1316,7 +1335,7 @@ export function CommunicationDialog({
                   disabled={busy || !raw.trim() || saved}
                   onClick={async () => {
                     try {
-                      await command({
+                      const created = await command<Communication>({
                         type: "communication.add",
                         customerId: c.id,
                         briefId: brief.id,
@@ -1324,6 +1343,7 @@ export function CommunicationDialog({
                         outcome,
                         content: raw,
                       });
+                      setCommunication(created);
                       setSaved(true);
                       toast.success("沟通记录已保存");
                     } catch (e) {
@@ -1349,6 +1369,7 @@ export function CommunicationDialog({
                   try {
                     const v = await command<Visit>({
                       type: "visit.draft",
+                      communicationId: communication?.id,
                       customerId: c.id,
                       briefId: brief.id,
                       raw,
@@ -1412,13 +1433,14 @@ export function CommunicationDialog({
                   <Checkbox
                     checked={draft.materialsComplete || false}
                     disabled={!!confirmed || !canWrite}
-                    onCheckedChange={(v) =>
+                    onCheckedChange={(v) => {
+                      setAck(false);
                       setDraft({
                         ...draft,
                         materialsComplete: v === true,
                         materials: v === true ? "" : draft.materials,
-                      })
-                    }
+                      });
+                    }}
                   />
                   已核实本次所需材料全部补齐（确认后清空待补清单）
                 </label>
@@ -1507,219 +1529,5 @@ export function CommunicationDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-export function FollowupBoard({
-  state,
-  command,
-  busy,
-  onOpen,
-  onRecord,
-}: {
-  state: PlatformState;
-  command: RunCommand;
-  busy: boolean;
-  onOpen: (c: Customer) => void;
-  onRecord: (c: Customer, v?: Visit) => void;
-}) {
-  const [filter, setFilter] = useState("pending");
-  const canWrite = ["admin", "supervisor", "manager"].includes(
-    state.workspace.role,
-  );
-  const tasks = state.tasks.filter(
-    (t) => filter === "all" || (filter === "done" ? t.done : !t.done),
-  );
-  const labels = {
-    draft: "待确认草稿",
-    confirmed: "已确认 · 待提交",
-    pending: "待独立审查",
-    approved: "审查通过",
-    rejected: "退回补充",
-  };
-  return (
-    <>
-      <PageTitle
-        eyebrow="FOLLOW-UP LOOP"
-        title="把沟通的结果，落实为下一步"
-        description="访前快照、渠道记录、纪要和任务彼此关联；每一次推进都更新客户进度。"
-      >
-        <button
-          className="btn"
-          disabled={!state.visits.some((v) => v.confirmed) || busy}
-          onClick={async () => {
-            try {
-              await command({
-                type: "audit.record",
-                action: "导出 CRM",
-                target: "已确认纪要与跟进任务",
-              });
-              downloadJson("银策星图-CRM待对接数据.json", {
-                workspace: state.workspace.name,
-                referenceDate: state.referenceDate,
-                writeStatus: "pending_external_integration",
-                visits: state.visits.filter((v) => v.confirmed),
-                tasks: state.tasks,
-              });
-            } catch (e) {
-              toast.error((e as Error).message);
-            }
-          }}
-        >
-          导出 CRM 数据
-        </button>
-      </PageTitle>
-      <div className="followup-summary">
-        <span>
-          <b>{state.tasks.filter((t) => !t.done).length}</b>未完成任务
-        </span>
-        <span>
-          <b>
-            {
-              state.tasks.filter((t) => !t.done && t.due < state.referenceDate)
-                .length
-            }
-          </b>
-          逾期待办
-        </span>
-        <span>
-          <b>{state.visits.filter((v) => v.status === "draft").length}</b>
-          待确认草稿
-        </span>
-        <span>
-          <b>{state.visits.filter((v) => v.status === "pending").length}</b>
-          待审纪要
-        </span>
-      </div>
-      <div className="review-tabs">
-        {[
-          ["pending", "待跟进"],
-          ["done", "已完成"],
-          ["all", "全部任务"],
-        ].map(([k, l]) => (
-          <button
-            className={"btn " + (filter === k ? "primary" : "")}
-            onClick={() => setFilter(k)}
-            key={k}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-      <section className="panel followup-list">
-        {tasks.length ? (
-          tasks.map((t) => (
-            <div
-              className={"followup-item " + (t.done ? "done" : "")}
-              key={t.id}
-            >
-              <Checkbox
-                checked={t.done}
-                disabled={busy || !canWrite}
-                aria-label={`完成任务 ${t.customerId} ${t.title}`}
-                onCheckedChange={async (v) => {
-                  try {
-                    await command({
-                      type: "task.toggle",
-                      taskId: t.id,
-                      done: v === true,
-                    });
-                  } catch (e) {
-                    toast.error((e as Error).message);
-                  }
-                }}
-              />
-              <div>
-                <strong>{t.title}</strong>
-                <p>
-                  {t.customerId} · {t.assigneeName} ·{" "}
-                  {t.source.startsWith("纪要")
-                    ? "来自访后纪要"
-                    : "模拟初始化任务"}
-                </p>
-              </div>
-              <span
-                className={
-                  "deadline-tag " +
-                  (!t.done && t.due < state.referenceDate ? "overdue" : "")
-                }
-              >
-                {t.due < state.referenceDate && !t.done
-                  ? "已逾期 "
-                  : t.due === state.referenceDate
-                    ? "今天 "
-                    : ""}
-                {t.due}
-              </span>
-              <button
-                className="text-btn"
-                onClick={() => {
-                  const c = state.customers.find((c) => c.id === t.customerId);
-                  if (c) onOpen(c);
-                }}
-              >
-                查看作战单
-                <ChevronRight size={15} />
-              </button>
-            </div>
-          ))
-        ) : (
-          <Empty
-            title="当前没有此类任务"
-            description="确认访后纪要时，可自动建立下一步跟进任务。"
-          />
-        )}
-      </section>
-      <div className="section-heading records-heading">
-        <h2>纪要与闭环记录</h2>
-        <span className="micro-copy">草稿可继续填写，确认后可提交独立审查</span>
-      </div>
-      <div className="records-grid">
-        {state.visits.length ? (
-          state.visits
-            .slice()
-            .reverse()
-            .map((v) => (
-              <button
-                className="panel record-card"
-                key={v.id}
-                onClick={() => {
-                  const c = state.customers.find((c) => c.id === v.customerId);
-                  if (c) onRecord(c, v);
-                }}
-              >
-                <div>
-                  <strong>{v.customerId}</strong>
-                  <span
-                    className={
-                      "tag " +
-                      (v.status === "approved"
-                        ? "teal"
-                        : v.status === "pending"
-                          ? "amber"
-                          : "gray")
-                    }
-                  >
-                    {labels[v.status || "draft"]}
-                  </span>
-                </div>
-                <p>{v.summary || "纪要草稿，等待归纳确认"}</p>
-                <footer>
-                  {v.nextDate ? "下次跟进 " + v.nextDate : "尚未约定下次日期"}
-                  <ArrowRight size={15} />
-                </footer>
-                <small>
-                  关联访前快照 {v.briefId?.slice(0, 8)} ·{" "}
-                  {v.ruleSnapshot.length} 条历史规则
-                </small>
-              </button>
-            ))
-        ) : (
-          <section className="panel empty-record">
-            <ClipboardCheck />
-            <p>完成访前准备后，记录一次沟通，开始这条闭环。</p>
-          </section>
-        )}
-      </div>
-    </>
   );
 }

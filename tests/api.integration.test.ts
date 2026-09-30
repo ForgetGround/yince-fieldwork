@@ -312,7 +312,7 @@ test("真实 PostgreSQL：登录、跨空间权限、双人审查、沟通闭环
   });
   await t.test("沟通、纪要和任务闭环，重复确认不会重复建任务", async () => {
     const raw = `客户计划扩大采购，需要核实流动资金需求。尚缺采购合同。下次于${addDays(chinaDate(), 2)}联系，跟进材料。`;
-    await manager.command({
+    const communication = await manager.command({
       type: "communication.add",
       customerId: "KH-001",
       briefId,
@@ -328,6 +328,38 @@ test("真实 PostgreSQL：登录、跨空间权限、双人审查、沟通闭环
       raw,
     });
     visitId = v.result.id;
+    assert.equal(v.result.communicationId, communication.result.id);
+    const repeated = await manager.command({
+      type: "visit.draft",
+      customerId: "KH-001",
+      briefId,
+      channel: "phone",
+      raw,
+      communicationId: communication.result.id,
+    });
+    assert.equal(repeated.result.id, visitId);
+    await manager.command(
+      {
+        type: "visit.draft",
+        customerId: "KH-001",
+        briefId,
+        channel: "phone",
+        raw: "另一段未保存的记录",
+        communicationId: communication.result.id,
+      },
+      409,
+    );
+    await manager.command(
+      {
+        type: "visit.draft",
+        customerId: "KH-001",
+        briefId,
+        channel: "wechat",
+        raw,
+        communicationId: communication.result.id,
+      },
+      409,
+    );
     const payload = {
       type: "visit.confirm",
       visitId,
@@ -343,7 +375,10 @@ test("真实 PostgreSQL：登录、跨空间权限、双人审查、沟通闭环
     const count = confirmed.state.tasks.length;
     await manager.command(payload, 409);
     assert.equal((await manager.state()).tasks.length, count);
-    assert.equal(confirmed.state.customers[0].stage, 3);
+    assert.equal(
+      confirmed.state.customers[0].stage,
+      Math.max(v.state.customers[0].stage || 0, 3),
+    );
     const submitted = await manager.command({ type: "visit.submit", visitId });
     const r = submitted.state.reviews.find(
       (r: any) => r.targetId === visitId && r.status === "pending",

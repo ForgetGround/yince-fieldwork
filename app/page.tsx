@@ -55,17 +55,18 @@ import {
   NotificationCenter,
   CustomerExtras,
   CommunicationDialog,
-  FollowupBoard,
 } from "@/components/platform-views";
 import { usePlatform } from "@/hooks/use-platform";
 import {
   type Customer,
   type Rule,
-  type Visit,
   ranked,
   opportunity,
   downloadJson,
 } from "@/lib/workbench";
+import { FollowupBoard, type RecordTarget } from "@/components/followup-board";
+import { emptyFollowupScope, type FollowupScope } from "@/lib/visit-context";
+import { visitPrompts } from "@/lib/fieldwork";
 import { CustomerInformation } from "@/components/customer-information";
 import { CustomerMap } from "@/components/customer-map";
 import { BrandLogo } from "@/components/brand-logo";
@@ -147,11 +148,13 @@ export default function Home() {
     [briefProductId, setBriefProductId] = useState(LEGACY_PRODUCT_ID),
     [customerId, setCustomerId] = useState<string | null>(null),
     [source, setSource] = useState<Rule | null>(null),
-    [record, setRecord] = useState<{
-      customerId: string;
-      productId?: string;
-      visit?: Visit;
-    } | null>(null),
+    [record, setRecord] = useState<RecordTarget | null>(null),
+    [visitSelection, setVisitSelection] = useState({
+      customerId: "",
+      productId: LEGACY_PRODUCT_ID,
+    }),
+    [followupScope, setFollowupScope] =
+      useState<FollowupScope>(emptyFollowupScope),
     [importOpen, setImportOpen] = useState(false),
     [guide, setGuide] = useState(false),
     [notifications, setNotifications] = useState(false);
@@ -162,6 +165,8 @@ export default function Home() {
     setCustomerId(null);
     setSource(null);
     setRecord(null);
+    setVisitSelection({ customerId: "", productId: LEGACY_PRODUCT_ID });
+    setFollowupScope(emptyFollowupScope);
     setImportOpen(false);
     setNotifications(false);
     setPage(1);
@@ -174,7 +179,25 @@ export default function Home() {
     setQuery("");
     setFilter("all");
   }
+  function openPreparation(c: Customer, productId = LEGACY_PRODUCT_ID) {
+    setCustomerId(null);
+    setRecord(null);
+    setVisitSelection({ customerId: c.id, productId });
+    navigate("preparation");
+    void command({
+      type: "audit.record",
+      action: "查看访前作战单",
+      target: c.id,
+    }).catch((e) => toast.error((e as Error).message));
+  }
+  function openFollowup(c: Customer, productId: string) {
+    setCustomerId(null);
+    setRecord(null);
+    setFollowupScope({ customerId: c.id, productId, status: "all" });
+    navigate("followups");
+  }
   async function openCustomer(c: Customer, productId = LEGACY_PRODUCT_ID) {
+    setVisitSelection({ customerId: c.id, productId });
     setBriefProductId(productId);
     setCustomerId(c.id);
     try {
@@ -499,7 +522,7 @@ export default function Home() {
                 if (a.kind === "customer") {
                   const c = state.customers.find((c) => c.id === a.target);
                   if (c)
-                    openCustomer(
+                    openPreparation(
                       c,
                       productId &&
                         state.products.some((p) => p.id === productId)
@@ -521,7 +544,19 @@ export default function Home() {
               busy={busy}
               onOpen={openCustomer}
               onSource={showSource}
-              onNavigate={navigate}
+              selection={visitSelection}
+              onSelect={(customerId, productId) =>
+                setVisitSelection({ customerId, productId })
+              }
+              onFollowup={openFollowup}
+              onNavigate={(target, overdue) => {
+                if (target === "followups")
+                  setFollowupScope({
+                    ...emptyFollowupScope,
+                    status: overdue ? "overdue" : "pending",
+                  });
+                navigate(target);
+              }}
             />
           )}
           {view === "customers" && (
@@ -601,7 +636,7 @@ export default function Home() {
                 {filtered.length ? (
                   <CustomerTable
                     customers={filtered.slice((page - 1) * 10, page * 10)}
-                    onOpen={openCustomer}
+                    onOpen={openPreparation}
                   />
                 ) : (
                   <Empty
@@ -638,7 +673,7 @@ export default function Home() {
               key={scopeKey}
               state={state}
               canWrite={canWrite}
-              onOpenCustomer={openCustomer}
+              onOpenCustomer={openPreparation}
               onSource={showSource}
               onActivate={async (id) => {
                 const review = state.reviews.find(
@@ -682,8 +717,10 @@ export default function Home() {
               state={state}
               command={command}
               busy={busy}
-              onOpen={openCustomer}
-              onRecord={(c, v) => setRecord({ customerId: c.id, visit: v })}
+              scope={followupScope}
+              onScopeChange={setFollowupScope}
+              onPrepare={openPreparation}
+              onRecord={setRecord}
             />
           )}
           {view === "reviews" && (
@@ -749,6 +786,7 @@ export default function Home() {
           key={scopeKey + customer.id + briefProductId}
           customer={customer}
           rules={state.rules.filter((r) => productIdOf(r) === briefProductId)}
+          productId={briefProductId}
           productName={
             state.products.find((p) => p.id === briefProductId)?.name
           }
@@ -771,20 +809,16 @@ export default function Home() {
           canWrite={canWrite}
           onClose={() => setCustomerId(null)}
           onSource={showSource}
-          onVisit={(c) => {
-            setCustomerId(null);
-            setRecord({ customerId: c.id, productId: briefProductId });
-          }}
+          onVisit={(c) => openFollowup(c, briefProductId)}
           onConfirm={async (c) => {
             await command<Brief>({
               type: "brief.confirm",
               productId: briefProductId,
               customerId: c.id,
               checklist: [
-                "已核对命中规则与客户信息",
-                "已准备需求核实问题与材料清单",
-                "已核对沟通边界",
-              ],
+                ...visitPrompts(c, briefProductId, state.rules).materials,
+                "已核对本产品规则、问询要点及沟通边界",
+              ].slice(0, 20),
               ack: true,
             });
             toast.success("访前准备与规则快照已保存");
@@ -792,6 +826,7 @@ export default function Home() {
         >
           <CustomerExtras
             customer={customer}
+            productId={briefProductId}
             state={state}
             command={command}
             busy={busy}
@@ -800,14 +835,22 @@ export default function Home() {
       )}
       {recordCustomer && record && (
         <CommunicationDialog
-          key={scopeKey + recordCustomer.id + (record.visit?.id || "new")}
+          key={
+            scopeKey +
+            recordCustomer.id +
+            (record.visit?.id ||
+              record.communication?.id ||
+              record.briefId ||
+              "new")
+          }
           customer={recordCustomer}
           state={state}
           command={command}
           busy={busy}
           onClose={() => setRecord(null)}
           existingVisit={record.visit}
-          productId={record.productId}
+          briefId={record.briefId}
+          existingCommunication={record.communication}
         />
       )}
       <SourceDialog
@@ -839,7 +882,17 @@ export default function Home() {
         open={notifications}
         onClose={() => setNotifications(false)}
         command={command}
-        onNavigate={navigate}
+        onNavigate={(target, customerId) => {
+          if (target === "followups")
+            setFollowupScope({
+              ...emptyFollowupScope,
+              customerId: state.customers.some((c) => c.id === customerId)
+                ? customerId!
+                : "",
+              status: "all",
+            });
+          navigate(target);
+        }}
       />
       <Guide
         open={guide}

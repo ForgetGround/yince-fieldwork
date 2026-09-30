@@ -17,7 +17,7 @@ export function DashboardSummary({
   onNavigate,
 }: {
   state: PlatformState;
-  onNavigate: (view: "followups" | "reviews") => void;
+  onNavigate: (view: "followups" | "reviews", overdue?: boolean) => void;
 }) {
   const items = [
     {
@@ -64,7 +64,7 @@ export function DashboardSummary({
           </CardHeader>
           <CardFooter>
             <button
-              onClick={() => onNavigate(item.view)}
+              onClick={() => onNavigate(item.view, item.tone === "amber")}
               aria-label={`${item.label} ${item.value} 项，${item.detail}`}
             >
               {item.detail}

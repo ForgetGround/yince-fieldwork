@@ -23,17 +23,22 @@ export function FieldworkHome({
   onSource,
   onNavigate,
   embedded = false,
+  selection,
+  onSelect,
+  onFollowup,
 }: {
   embedded?: boolean;
+  selection: { customerId: string; productId: string };
+  onSelect: (customerId: string, productId: string) => void;
+  onFollowup: (c: Customer, productId: string) => void;
   state: PlatformState;
   command: Command;
   busy: boolean;
   onOpen: (c: Customer, productId: string) => void;
   onSource: (r: Rule) => void;
-  onNavigate: (view: "followups" | "reviews") => void;
+  onNavigate: (view: "followups" | "reviews", overdue?: boolean) => void;
 }) {
-  const [selected, setSelected] = useState("");
-  const [productId, setProductId] = useState(LEGACY_PRODUCT_ID);
+  const { customerId: selected, productId } = selection;
   const customers = ranked(state.customers);
   const customer = customers.find((c) => c.id === selected) || customers[0];
   const product =
@@ -81,7 +86,7 @@ export function FieldworkHome({
             <select
               aria-label="本次客户"
               value={customer.id}
-              onChange={(e) => setSelected(e.target.value)}
+              onChange={(e) => onSelect(e.target.value, product.id)}
             >
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -95,7 +100,7 @@ export function FieldworkHome({
             <select
               aria-label="沟通产品"
               value={product.id}
-              onChange={(e) => setProductId(e.target.value)}
+              onChange={(e) => onSelect(customer.id, e.target.value)}
             >
               {state.products.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -146,7 +151,7 @@ export function FieldworkHome({
             className="text-btn"
             onClick={() => onOpen(customer, product.id)}
           >
-            查看完整作战单与沟通记录
+            查看完整访前作战单
             <ArrowRight size={14} />
           </button>
         </section>
@@ -159,7 +164,7 @@ export function FieldworkHome({
             <span className="muted-copy">先补齐未知信息</span>
           </div>
           <ol className="field-questions">
-            {p.questions.slice(0, 4).map((q) => (
+            {p.questions.map((q) => (
               <li key={q.id}>
                 <strong>{q.text}</strong>
                 <p>{q.basis}</p>
@@ -174,14 +179,6 @@ export function FieldworkHome({
               </li>
             ))}
           </ol>
-          {p.questions.length > 4 && (
-            <button
-              className="text-btn"
-              onClick={() => onOpen(customer, product.id)}
-            >
-              还有 {p.questions.length - 4} 项，查看完整问询
-            </button>
-          )}
         </section>
         <Preparation
           key={customer.id + product.id}
@@ -194,14 +191,14 @@ export function FieldworkHome({
           )}
           busy={busy}
           command={command}
-          onOpen={() => onOpen(customer, product.id)}
+          onOpen={() => onFollowup(customer, product.id)}
         />
       </div>
       <CustomerMap
         key={customer.id}
         state={state}
         selected={customer}
-        onSelect={setSelected}
+        onSelect={(id) => onSelect(id, product.id)}
         command={command}
         busy={busy}
       />
@@ -302,7 +299,7 @@ function Preparation({
         </>
       )}
       <button className="text-btn" onClick={onOpen}>
-        进入作战单与访后闭环
+        进入该客户的访后跟进
         <ArrowRight size={14} />
       </button>
     </section>

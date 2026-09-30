@@ -135,6 +135,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("visit.draft"),
+      communicationId: text(100).optional(),
       customerId: text(30),
       briefId: text(100),
       raw: text(30000).min(1),
@@ -741,16 +742,38 @@ export async function execute(ctx: Context, input: unknown) {
       const c = await customer(ctx, command.customerId, true);
       const b = await get<Brief>(tx, "briefs", ws, command.briefId);
       demand(b && b.customerId === c.id, 409, "请先确认本客户的访前准备");
-      demand(
-        (await rows<Communication>(tx, "communications", ws)).some(
-          (r) =>
-            r.customerId === c.id &&
-            r.briefId === b.id &&
-            r.outcome === "connected",
-        ),
-        409,
-        "请先保存已沟通记录，再生成访后归纳",
+      const communications = await rows<Communication>(
+        tx,
+        "communications",
+        ws,
       );
+      const communication = communications.find(
+        (r) =>
+          (!command.communicationId || r.id === command.communicationId) &&
+          r.customerId === c.id &&
+          r.briefId === b.id &&
+          r.outcome === "connected" &&
+          r.channel === command.channel &&
+          r.content === command.raw,
+      );
+      demand(
+        communication,
+        409,
+        "请先保存本次已沟通记录；客户、产品快照、渠道和原文必须一致",
+      );
+      const existing = (await rows<Visit>(tx, "visits", ws)).find(
+        (v) =>
+          v.customerId === c.id &&
+          v.briefId === b.id &&
+          (v.communicationId
+            ? v.communicationId === communication.id
+            : v.raw === communication.content &&
+              v.channel === communication.channel),
+      );
+      if (existing) {
+        result = existing;
+        break;
+      }
       demand(
         !/\b1[3-9]\d{9}\b|\b\d{17}[\dXx]\b/.test(command.raw),
         400,
@@ -761,6 +784,7 @@ export async function execute(ctx: Context, input: unknown) {
         customerId: c.id,
         briefId: b.id,
         actorId: ctx.user.id,
+        communicationId: communication.id,
         raw: command.raw,
         ...extractVisit(command.raw),
         channel: command.channel,

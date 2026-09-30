@@ -72,6 +72,7 @@ import { CustomerMap } from "@/components/customer-map";
 import { BrandLogo } from "@/components/brand-logo";
 import { FieldworkHome } from "@/components/fieldwork-home";
 import { AssistantHome } from "@/components/assistant-home";
+import { DashboardSummary } from "@/components/dashboard-summary";
 import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
@@ -521,6 +522,17 @@ export default function Home() {
             </div>
           )}
           <div className="conversation-host" hidden={view !== "overview"}>
+            <DashboardSummary
+              state={state}
+              onOpen={(target) => {
+                if (target === "reviews") {
+                  navigate("reviews");
+                } else {
+                  setFollowupScope({ ...emptyFollowupScope, status: target });
+                  navigate("followups");
+                }
+              }}
+            />
             <AssistantHome
               key={scopeKey}
               state={state}

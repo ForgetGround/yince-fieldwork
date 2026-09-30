@@ -139,6 +139,68 @@
 .workspace-footer[hidden] {
   display: none;
 }
+.conversation-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-shrink: 0;
+  gap: 14px;
+  padding: 20px max(32px, calc((100% - 1000px) / 2)) 8px;
+}
+.conversation-stat {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px 12px;
+  border: 1px solid #e4e8f2;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.conversation-stat:hover {
+  background: #f8f9ff;
+  border-color: #adb5e9;
+}
+.conversation-stat:focus-visible {
+  outline: 2px solid #4954cf;
+  outline-offset: 3px;
+}
+.conversation-stat-label,
+.conversation-stat-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: #66728a;
+  font-size: 13px;
+}
+.conversation-stat-label svg {
+  color: #6571d2;
+}
+.conversation-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: #8791a3;
+  font-size: 12px;
+}
+.conversation-stat-value strong {
+  color: #303d67;
+  font-size: 52px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.conversation-stat.overdue .conversation-stat-value strong,
+.conversation-stat.overdue .conversation-stat-label svg {
+  color: #b97720;
+}
+.conversation-stat-link {
+  padding-top: 8px;
+  border-top: 1px solid #edf0f6;
+  font-size: 11px;
+}
 .conversation-home .assistant-log {
   flex: 1;
   height: auto;
@@ -352,6 +414,27 @@
   }
 }
 @media (max-width: 767px) {
+  .conversation-summary {
+    gap: 8px;
+    padding: 12px 12px 4px;
+  }
+  .conversation-stat {
+    padding: 12px 10px 10px;
+    gap: 6px;
+  }
+  .conversation-stat-label {
+    font-size: 12px;
+  }
+  .conversation-stat-label svg,
+  .conversation-stat-link svg {
+    display: none;
+  }
+  .conversation-stat-value strong {
+    font-size: 40px;
+  }
+  .conversation-stat-link {
+    font-size: 10px;
+  }
   .xingtu-shell .topbar {
     min-height: 62px;
     height: 62px;

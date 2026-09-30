@@ -159,6 +159,7 @@ export default function Home() {
     [guide, setGuide] = useState(false),
     [notifications, setNotifications] = useState(false);
   const snapshot = useRef({ state, command });
+  const workspace = useRef<HTMLDivElement>(null);
   snapshot.current = { state, command };
   const scopeKey = (state?.workspace.id || "") + ":" + (session?.user.id || "");
   useEffect(() => {
@@ -175,6 +176,13 @@ export default function Home() {
   }, [scopeKey]);
   function navigate(id: string) {
     setView(id);
+    setCustomerId(null);
+    setRecord(null);
+    setSource(null);
+    setImportOpen(false);
+    setGuide(false);
+    setNotifications(false);
+    workspace.current?.scrollTo({ top: 0 });
     setPage(1);
     setQuery("");
     setFilter("all");
@@ -290,8 +298,8 @@ export default function Home() {
             action: "查看作战单",
             target: c.id,
           });
-          setBriefProductId(LEGACY_PRODUCT_ID);
-          setCustomerId(c.id);
+          setVisitSelection({ customerId: c.id, productId: LEGACY_PRODUCT_ID });
+          navigate("preparation");
           return {
             customerId: c.id,
             status: "opened",
@@ -502,6 +510,7 @@ export default function Home() {
           </div>
         </header>
         <div
+          ref={workspace}
           className={
             "workspace" + (view === "overview" ? " conversation-workspace" : "")
           }
@@ -549,14 +558,6 @@ export default function Home() {
                 setVisitSelection({ customerId, productId })
               }
               onFollowup={openFollowup}
-              onNavigate={(target, overdue) => {
-                if (target === "followups")
-                  setFollowupScope({
-                    ...emptyFollowupScope,
-                    status: overdue ? "overdue" : "pending",
-                  });
-                navigate(target);
-              }}
             />
           )}
           {view === "customers" && (
@@ -797,7 +798,13 @@ export default function Home() {
                 key={scopeKey + customer.id}
                 state={state}
                 selected={customer}
-                onSelect={setCustomerId}
+                onSelect={(id) => {
+                  setCustomerId(id);
+                  setVisitSelection({
+                    customerId: id,
+                    productId: briefProductId,
+                  });
+                }}
                 command={command}
                 busy={busy}
               />
@@ -809,7 +816,6 @@ export default function Home() {
           canWrite={canWrite}
           onClose={() => setCustomerId(null)}
           onSource={showSource}
-          onVisit={(c) => openFollowup(c, briefProductId)}
           onConfirm={async (c) => {
             await command<Brief>({
               type: "brief.confirm",

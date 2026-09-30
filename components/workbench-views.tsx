@@ -637,7 +637,6 @@ export function CustomerDetail({
   rules,
   onClose,
   onSource,
-  onVisit,
   onConfirm,
   prepared = false,
   busy = false,
@@ -652,7 +651,6 @@ export function CustomerDetail({
   rules: Rule[];
   onClose: () => void;
   onSource: (r: Rule) => void;
-  onVisit: (c: Customer) => void;
   onConfirm: (c: Customer) => Promise<void>;
   prepared?: boolean;
   busy?: boolean;
@@ -874,13 +872,8 @@ export function CustomerDetail({
             <ShieldCheck size={15} />
             所有建议需人工核实
           </span>
-          <button
-            className="btn primary"
-            disabled={busy || !canWrite}
-            onClick={() => onVisit(c)}
-          >
-            进入该客户的访后跟进
-            <ArrowRight size={16} />
+          <button className="btn primary" onClick={onClose}>
+            返回访前准备
           </button>
         </div>
       </SheetContent>

@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { CustomerInformation } from "./customer-information";
 import { CustomerMap } from "./customer-map";
-import { DashboardSummary } from "./dashboard-summary";
 import { toast } from "sonner";
 import type { PlatformState } from "@/lib/platform";
 import { ranked, type Customer, type Rule } from "@/lib/workbench";
@@ -21,13 +20,10 @@ export function FieldworkHome({
   busy,
   onOpen,
   onSource,
-  onNavigate,
-  embedded = false,
   selection,
   onSelect,
   onFollowup,
 }: {
-  embedded?: boolean;
   selection: { customerId: string; productId: string };
   onSelect: (customerId: string, productId: string) => void;
   onFollowup: (c: Customer, productId: string) => void;
@@ -36,7 +32,6 @@ export function FieldworkHome({
   busy: boolean;
   onOpen: (c: Customer, productId: string) => void;
   onSource: (r: Rule) => void;
-  onNavigate: (view: "followups" | "reviews", overdue?: boolean) => void;
 }) {
   const { customerId: selected, productId } = selection;
   const customers = ranked(state.customers);
@@ -63,18 +58,13 @@ export function FieldworkHome({
   );
   return (
     <>
-      {!embedded && (
-        <>
-          <div className="field-home-header">
-            <div>
-              <span className="eyebrow">今日工作</span>
-              <h1>访前作战单</h1>
-              <p>查看待办，准备下一次有效沟通。</p>
-            </div>
-          </div>
-          <DashboardSummary state={state} onNavigate={onNavigate} />
-        </>
-      )}
+      <div className="field-home-header">
+        <div>
+          <span className="eyebrow">拜访前 · 沟通准备</span>
+          <h1>访前作战单</h1>
+          <p>了解客户、核对产品条件，准备本次问询与资料。</p>
+        </div>
+      </div>
       <section className="field-preparation-context" aria-label="本次沟通对象">
         <div>
           <h2>本次沟通准备</h2>
@@ -191,7 +181,7 @@ export function FieldworkHome({
           )}
           busy={busy}
           command={command}
-          onOpen={() => onFollowup(customer, product.id)}
+          onFollowup={() => onFollowup(customer, product.id)}
         />
       </div>
       <CustomerMap
@@ -213,7 +203,7 @@ function Preparation({
   canWrite,
   busy,
   command,
-  onOpen,
+  onFollowup,
 }: {
   customer: Customer;
   productId: string;
@@ -222,7 +212,7 @@ function Preparation({
   canWrite: boolean;
   busy: boolean;
   command: Command;
-  onOpen: () => void;
+  onFollowup: () => void;
 }) {
   const [checked, setChecked] = useState<string[]>([]);
   const [ack, setAck] = useState(false);
@@ -298,10 +288,16 @@ function Preparation({
           </button>
         </>
       )}
-      <button className="text-btn" onClick={onOpen}>
-        进入该客户的访后跟进
-        <ArrowRight size={14} />
-      </button>
+      {prepared && (
+        <div className="field-note">
+          <small>完成实际沟通后</small>
+          <p>已保存准备资料。电话、微信或拜访结束后，再填写沟通结果。</p>
+          <button className="text-btn" onClick={onFollowup}>
+            沟通已结束，去填写访后记录
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      )}
     </section>
   );
 }

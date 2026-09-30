@@ -88,7 +88,7 @@ export function AuthScreen({
       <section className="auth-story">
         <div className="auth-brand">
           <BrandLogo size={42} />
-          <strong>银册星图</strong>
+          <strong>银策星图</strong>
           <span>展业版 3.0</span>
         </div>
         <span className="eyebrow">YINGCE · FIELDWORK</span>
@@ -124,7 +124,7 @@ export function AuthScreen({
       <section className="auth-card">
         <div className="auth-mobile-brand">
           <BrandLogo size={42} />
-          <strong>银册星图</strong>
+          <strong>银策星图</strong>
         </div>
         <div className="eyebrow">欢迎回来</div>
         <h2>{mode === "setup" ? "初始化管理员" : "管理员登录"}</h2>
@@ -1553,7 +1553,7 @@ export function FollowupBoard({
                 action: "导出 CRM",
                 target: "已确认纪要与跟进任务",
               });
-              downloadJson("银册星图-CRM待对接数据.json", {
+              downloadJson("银策星图-CRM待对接数据.json", {
                 workspace: state.workspace.name,
                 referenceDate: state.referenceDate,
                 writeStatus: "pending_external_integration",

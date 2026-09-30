@@ -1278,3 +1278,45 @@ tr:hover td {
     width: 100%;
   }
 }
+
+/* Customer details stay on the preparation page, without a disclosure menu. */
+.customer-information {
+  padding: 22px;
+  margin-bottom: 24px;
+}
+.customer-information-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 26px;
+  margin-top: 20px;
+}
+.customer-information-facts dt {
+  color: #64748b;
+  font-size: 12px;
+}
+.customer-information-facts dd {
+  margin-top: 7px;
+  font-size: 14px;
+  color: #334155;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.battle-content .customer-information-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.field-home-grid + .field-map {
+  margin-top: 24px;
+}
+@media (max-width: 1050px) {
+  .customer-information-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .customer-information {
+    padding: 17px;
+  }
+  .customer-information-facts {
+    gap: 18px 14px;
+  }
+}

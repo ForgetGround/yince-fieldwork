@@ -6,6 +6,8 @@ import {
   ClipboardList,
   ArrowRight,
 } from "lucide-react";
+import { CustomerInformation } from "./customer-information";
+import { CustomerMap } from "./customer-map";
 import { DashboardSummary } from "./dashboard-summary";
 import { toast } from "sonner";
 import type { PlatformState } from "@/lib/platform";
@@ -104,6 +106,7 @@ export function FieldworkHome({
           </label>
         </div>
       </section>
+      <CustomerInformation customer={customer} />
       <div className="field-home-grid">
         <section className="panel field-card">
           <div className="field-card-title">
@@ -194,6 +197,14 @@ export function FieldworkHome({
           onOpen={() => onOpen(customer, product.id)}
         />
       </div>
+      <CustomerMap
+        key={customer.id}
+        state={state}
+        selected={customer}
+        onSelect={setSelected}
+        command={command}
+        busy={busy}
+      />
     </>
   );
 }

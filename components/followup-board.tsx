@@ -155,7 +155,7 @@ export function FollowupBoard({
               <option value="">全部客户</option>
               {state.customers.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.id} · {c.industry}
+                  {c.id} · {c.companyName || c.industry}
                 </option>
               ))}
             </select>

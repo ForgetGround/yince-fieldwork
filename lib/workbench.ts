@@ -19,6 +19,7 @@ export type Customer = {
   wechat?: string;
   contactConsent?: boolean;
   id: string;
+  companyName?: string;
   industry: string;
   products: string[];
   operatingYears: number | null;
@@ -123,6 +124,7 @@ const industries = [
 export function sampleCustomers(): Customer[] {
   return Array.from({ length: 20 }, (_, i) => ({
     id: `KH-${String(i + 1).padStart(3, "0")}`,
+    companyName: `${["商贸", "制造", "商服", "食品", "商务"][i % 5]}示例企业${String(i + 1).padStart(3, "0")}（模拟）`,
     industry: industries[i % 5],
     products: i % 3 === 0 ? ["基本结算账户", "经营贷款"] : ["基本结算账户"],
     operatingYears: i === 11 ? null : i % 6 === 3 ? 1.5 : 3 + (i % 5),
@@ -549,6 +551,7 @@ const allowed = [
   "hasIP",
   "techCommercialized",
   "id",
+  "companyName",
   "industry",
   "products",
   "operatingYears",
@@ -611,6 +614,15 @@ export function validateCustomers(value: unknown): Customer[] {
       missing: [],
       origin: "本机导入 · 以演示基准日计",
     };
+    if (o.companyName !== undefined && o.companyName !== null) {
+      if (
+        typeof o.companyName !== "string" ||
+        !o.companyName.trim() ||
+        o.companyName.trim().length > 120
+      )
+        throw Error(`第 ${i + 1} 行企业名称需为 1–120 字文本`);
+      c.companyName = o.companyName.trim();
+    }
     for (const k of [
       "operatingYears",
       "experienceYears",
@@ -671,7 +683,13 @@ export function validateCustomers(value: unknown): Customer[] {
     c.demand = (o.demand || "") as string;
     if (
       /\b1[3-9]\d{9}\b|\b\d{17}[\dXx]\b/.test(
-        [c.industry, c.demand, ...c.products, ...c.missing].join(" "),
+        [
+          c.companyName || "",
+          c.industry,
+          c.demand,
+          ...c.products,
+          ...c.missing,
+        ].join(" "),
       )
     )
       throw Error(`第 ${i + 1} 行疑似含手机号或身份证号，请先脱敏`);

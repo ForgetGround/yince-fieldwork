@@ -1301,6 +1301,15 @@ tr:hover td {
   overflow-wrap: anywhere;
   line-height: 1.7;
 }
+.customer-information-company {
+  grid-column: 1 / -1;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #edf0f6;
+}
+.customer-information-company dd {
+  font-size: 17px;
+  font-weight: 600;
+}
 .battle-content .customer-information-facts {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

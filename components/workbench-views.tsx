@@ -106,7 +106,7 @@ export function CustomerTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>客户 / 行业</TableHead>
+          <TableHead>企业 / 客户编号</TableHead>
           <TableHead>联系理由</TableHead>
           <TableHead>优先级</TableHead>
           <TableHead className="last-contact">最近联系</TableHead>
@@ -124,8 +124,10 @@ export function CustomerTable({
                     {c.id.slice(-3)}
                   </span>
                   <div>
-                    <strong>{c.id}</strong>
-                    <small>{c.industry}</small>
+                    <strong>{c.companyName || c.id}</strong>
+                    <small>
+                      {c.id} · {c.industry}
+                    </small>
                   </div>
                 </button>
               </TableCell>
@@ -967,11 +969,12 @@ export function ImportDialog({
               setAck(false);
             }}
             rows={6}
-            placeholder='[{"id":"KH-021","industry":"制造业","lastContactDays":12}]'
+            placeholder='[{"id":"KH-021","companyName":"示例企业（模拟）","industry":"制造业","lastContactDays":12}]'
           />
         </label>
         <p className="micro-copy">
-          姓名、身份证、手机号、完整流水不在导入字段中。空缺字段使用
+          companyName 为可选企业名称（最多 120
+          字），也可填写脱敏别名；个人姓名、身份证、手机号、完整流水不在导入字段中。空缺字段使用
           null，不能用 0 替代。天数以导入当日为基准，后端自动换算为到期日期。
         </p>
         {error && (

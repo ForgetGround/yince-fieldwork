@@ -134,7 +134,9 @@ export function ProductLibrary({
       (filter === "all" || m.status === filter) &&
       (() => {
         const c = state.customers.find((c) => c.id === m.customerId);
-        return `${m.customerId} ${c?.industry || ""}`.includes(query.trim());
+        return `${m.customerId} ${c?.companyName || ""} ${c?.industry || ""}`.includes(
+          query.trim(),
+        );
       })(),
   );
   return (
@@ -197,7 +199,7 @@ export function ProductLibrary({
             <Search size={17} />
             <Input
               aria-label="搜索匹配客户"
-              placeholder="搜索客户编号 / 行业"
+              placeholder="搜索企业名称 / 客户编号 / 行业"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -217,6 +219,7 @@ export function ProductLibrary({
                         {c.id}
                         <span>{c.industry}</span>
                       </h3>
+                      {c.companyName && <p>{c.companyName}</p>}
                       <p>{c.origin}</p>
                     </div>
                     <span className={"tag " + colors[m.status]}>

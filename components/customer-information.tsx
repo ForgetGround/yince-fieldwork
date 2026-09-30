@@ -4,6 +4,7 @@ import type { Customer } from "@/lib/workbench";
 /** Always visible; contact fields retain the existing authorization boundary. */
 export function CustomerInformation({ customer }: { customer: Customer }) {
   const facts = [
+    ["企业名称", customer.companyName || "待补充"],
     ["客户编号", customer.id],
     ["所属行业", customer.industry],
     [
@@ -45,7 +46,12 @@ export function CustomerInformation({ customer }: { customer: Customer }) {
       </div>
       <dl className="customer-information-facts">
         {facts.map(([label, value]) => (
-          <div key={label}>
+          <div
+            key={label}
+            className={
+              label === "企业名称" ? "customer-information-company" : undefined
+            }
+          >
             <dt>{label}</dt>
             <dd>{value}</dd>
           </div>

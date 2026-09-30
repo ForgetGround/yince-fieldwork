@@ -106,6 +106,8 @@ nginx -t
 
 `server/migrate-products.ts` 使用 API 的数据库身份，在事务内逐工作空间迁移：补齐产品目录、为旧规则归属待核实产品、添加产品专属核查规则；仅为原始 mock 客户补齐缺失的模拟特征。不会覆盖既有客户字段或历史访前快照，重复运行不会新增重复规则。新工作空间在创建时自动执行同样的初始化。
 
+企业名称存储在现有客户 JSONB 的 `companyName` 字段，无需改表。使用相同 API 数据库环境执行 `server/migrate-company-names.ts`，仅为未命名、编号与行业仍匹配原始种子、来源为 `PostgreSQL 模拟数据` 的客户补齐模拟名称，并记审计；已有名称、导入客户和历史快照不变。可重复执行。独立测试库验证命令：`node --env-file=<测试环境文件> --test tests/customer-name.integration.test.ts`，测试限定 `yince_test` 且全程事务回滚。
+
 备份后，用新版 API release 的 Node 和环境文件运行迁移，再启动新版服务。迁移只处理非演示工作空间，不能恢复已关闭的演示登录。产品规则增加后，不应直接退回旧版无产品筛选的 API；需保留新版后端，或在停止写入后按完整备份恢复本项目数据库与匹配的旧应用版本。
 
 专项集成验收：在已初始化、具有 qa_admin / qa_manager / qa_reviewer 的独立 `yince_test` 库和本地 API 上执行 `node --env-file=<测试环境文件> --test tests/products.integration.test.ts`。测试会追加测试规则、访前快照与沟通记录，禁止指向生产库。

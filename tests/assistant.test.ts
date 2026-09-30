@@ -24,6 +24,7 @@ test("AI 摘要不包含联系方式、位置、负责人、自由文本需求�
       phone: "13800138000",
       wechat: "private-wechat",
       ownerName: "PRIVATE-NAME",
+      companyName: "PRIVATE-COMPANY-NAME",
       demand: "RAW-PRIVATE-NOTE",
       location: { address: "PRIVATE-ADDRESS", latitude: 29, longitude: 116 },
     },
@@ -34,6 +35,7 @@ test("AI 摘要不包含联系方式、位置、负责人、自由文本需求�
     "13800138000",
     "private-wechat",
     "PRIVATE-NAME",
+    "PRIVATE-COMPANY-NAME",
     "RAW-PRIVATE-NOTE",
     "PRIVATE-ADDRESS",
   ])

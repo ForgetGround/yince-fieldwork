@@ -372,7 +372,7 @@ export default function Home() {
     (c) =>
       (filter === "all" || opportunity(c).type === filter) &&
       (!query ||
-        `${c.id} ${c.industry} ${c.demand}`
+        `${c.id} ${c.companyName || ""} ${c.industry} ${c.demand}`
           .toLowerCase()
           .includes(query.toLowerCase())),
   );
@@ -609,8 +609,8 @@ export default function Home() {
                   <div className="customer-search">
                     <Search size={16} />
                     <Input
-                      aria-label="搜索客户编号或行业"
-                      placeholder="搜索编号、行业、需求"
+                      aria-label="搜索企业名称、客户编号或行业"
+                      placeholder="搜索企业、编号、行业、需求"
                       value={query}
                       onChange={(e) => {
                         setQuery(e.target.value);

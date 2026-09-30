@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   ArrowUpRight,
-  Plus,
   LoaderCircle,
   MessageSquare,
   ChevronRight,
-  FileText,
+  Sparkles,
   CheckCircle2,
 } from "lucide-react";
 import { BrandLogo } from "./brand-logo";
@@ -19,8 +18,6 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import type { PlatformState } from "@/lib/platform";
-import { opportunity, ranked } from "@/lib/workbench";
-import { priorityLevel } from "@/lib/platform";
 import type {
   AssistantAction,
   AssistantAnswer,
@@ -32,15 +29,15 @@ type Request = <T>(path: string, data?: unknown) => Promise<T>;
 export function AssistantHome({
   state,
   request,
-  onNavigate,
   onAction,
-  preparation,
+  newConversation,
+  onBusyChange,
 }: {
-  preparation?: ReactNode;
+  newConversation: number;
+  onBusyChange: (busy: boolean) => void;
   state: PlatformState;
   request: Request;
-  onNavigate: (view: string) => void;
-  onAction: (action: AssistantAction) => void;
+  onAction: (action: AssistantAction, productId?: string) => void;
 }) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]),
     [threadId, setThreadId] = useState<string | undefined>(),
@@ -79,13 +76,19 @@ export function AssistantHome({
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [messages, sending]);
-  const pending = state.tasks
-      .filter((t) => !t.done)
-      .sort((a, b) => a.due.localeCompare(b.due)),
-    done = state.tasks.filter((t) => t.done).length,
-    total = state.tasks.length,
-    percent = total ? Math.round((done / total) * 100) : 0;
-  const priority = ranked(state.customers).slice(0, 3);
+  const conversationVersion = useRef(newConversation);
+  useEffect(() => {
+    onBusyChange(loading || sending);
+  }, [loading, sending, onBusyChange]);
+  useEffect(() => {
+    if (conversationVersion.current === newConversation) return;
+    conversationVersion.current = newConversation;
+    setMessages([]);
+    setThreadId(undefined);
+    setDraft("");
+    setError("");
+    setPlan(null);
+  }, [newConversation]);
   async function send(text = draft) {
     if (!text.trim() || sendingRef.current || loading) return;
     sendingRef.current = true;
@@ -118,167 +121,21 @@ export function AssistantHome({
       if (alive.current) setSending(false);
     }
   }
-  function openAction(a: AssistantAction) {
+  function openAction(
+    a: AssistantAction,
+    context?: { plan: AssistantPlan; answer: AssistantAnswer },
+  ) {
+    const products =
+      context?.answer.actions.filter(
+        (item) =>
+          item.kind === "product" && context.plan.actionIds.includes(item.id),
+      ) || [];
     setPlan(null);
-    onAction(a);
+    onAction(a, products.length === 1 ? products[0].target : undefined);
   }
   return (
-    <div className="assistant-home">
-      <div className="assistant-heading">
-        <div>
-          <span className="eyebrow">今日工作</span>
-          <h1>先看重点，再开始对话。</h1>
-        </div>
-        <span className="assistant-engine">
-          <span />
-          DeepSeek Flash · 快速回答
-        </span>
-      </div>
-      <div className="assistant-overview">
-        <button
-          className="assistant-progress panel"
-          onClick={() => onNavigate("team")}
-        >
-          <span>
-            跟进进度 <ArrowUpRight size={16} />
-          </span>
-          <strong>
-            {percent}
-            <small>%</small>
-          </strong>
-          <div className="assistant-progress-track">
-            <i style={{ width: percent + "%" }} />
-          </div>
-          <small>
-            已完成 {done} / {total} 项任务
-          </small>
-        </button>
-        <button
-          className="assistant-metric panel"
-          onClick={() => onNavigate("followups")}
-        >
-          <span>
-            待办项目 <ArrowUpRight size={16} />
-          </span>
-          <strong>
-            {pending.length}
-            <small>项</small>
-          </strong>
-          <small>
-            {pending.filter((t) => t.due < state.referenceDate).length}{" "}
-            项逾期，优先跟进
-          </small>
-        </button>
-        <button
-          className="assistant-metric panel"
-          onClick={() => onNavigate("reviews")}
-        >
-          <span>
-            等待审查 <ArrowUpRight size={16} />
-          </span>
-          <strong>
-            {state.reviews.filter((r) => r.status === "pending").length}
-            <small>项</small>
-          </strong>
-          <small>纪要、规则与转派</small>
-        </button>
-      </div>
-      <div className="assistant-priorities" aria-label="优先跟进项目">
-        {(pending.length
-          ? pending.slice(0, 3).map((t) => ({
-              id: t.id,
-              title: t.title,
-              customer: state.customers.find((c) => c.id === t.customerId),
-              note: t.due + " 截止",
-              task: true,
-            }))
-          : priority.map((c) => ({
-              id: c.id,
-              title: "核实经营与业务需求",
-              customer: c,
-              note: "待确认本次沟通安排",
-              task: false,
-            }))
-        ).map((item) => (
-          <div className="assistant-priority" key={item.id}>
-            <div>
-              <button
-                onClick={() =>
-                  item.task
-                    ? onNavigate("followups")
-                    : item.customer &&
-                      onAction({
-                        id: "customer:" + item.customer.id,
-                        kind: "customer",
-                        target: item.customer.id,
-                        label: "查看作战单",
-                      })
-                }
-              >
-                {item.title}
-                <ChevronRight size={14} />
-              </button>
-              <small>
-                {item.customer?.id || "待分配客户"} · {item.note}
-              </small>
-            </div>
-            {item.customer && (
-              <button
-                aria-label={`查看 ${item.customer.id}，联系优先级 ${opportunity(item.customer).score}`}
-                className={
-                  "assistant-score " +
-                  priorityLevel(opportunity(item.customer).score).className
-                }
-                onClick={() =>
-                  onAction({
-                    id: "customer:" + item.customer!.id,
-                    kind: "customer",
-                    target: item.customer!.id,
-                    label: "查看作战单",
-                  })
-                }
-              >
-                {opportunity(item.customer).score}
-                <span>/100</span>
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {preparation && (
-        <details className="assistant-preparation">
-          <summary>
-            <span>
-              <FileText size={17} />
-              访前准备
-            </span>
-            <small>选择客户与产品，准备本次沟通</small>
-            <ChevronRight size={16} />
-          </summary>
-          <div className="assistant-preparation-body">{preparation}</div>
-        </details>
-      )}
-      <section className="assistant-chat panel">
-        <header>
-          <div>
-            <BrandLogo size={30} />
-            <strong>星图助手</strong>
-            <span>把需求变成下一步</span>
-          </div>
-          <button
-            className="text-btn"
-            disabled={sending || loading}
-            onClick={() => {
-              setMessages([]);
-              setThreadId(undefined);
-              setError("");
-              setDraft("");
-            }}
-          >
-            <Plus size={15} />
-            新对话
-          </button>
-        </header>
+    <div className="assistant-home conversation-home">
+      <section className="assistant-chat" aria-label="展业助手对话">
         <div
           className="assistant-log"
           ref={log}
@@ -297,7 +154,9 @@ export function AssistantHome({
               <p>问一个问题，或让我结合当前工作空间整理一份展业方案。</p>
               <div className="assistant-prompts">
                 {[
-                  "今天先联系哪些客户？",
+                  state.customers[0]
+                    ? `为 ${state.customers[0].id} 准备一份简短营销方案`
+                    : "如何准备一次客户拜访？",
                   "帮我准备一次续贷沟通",
                   "哪些客户适合税易贷？",
                   "梳理逾期待办的跟进顺序",
@@ -313,8 +172,17 @@ export function AssistantHome({
           ) : (
             messages.map((m, i) => (
               <div className={"assistant-message " + m.role} key={i}>
-                {m.role === "assistant" && <BrandLogo size={25} />}
+                {m.role === "assistant" && (
+                  <span className="conversation-avatar">
+                    <Sparkles size={20} />
+                  </span>
+                )}
                 <div className="assistant-message-body">
+                  {m.role === "assistant" && (
+                    <div className="conversation-byline">
+                      银策星图 · 展业助手
+                    </div>
+                  )}
                   <p>{m.content}</p>
                   {m.result?.notice && (
                     <small className="assistant-response-label">
@@ -322,24 +190,81 @@ export function AssistantHome({
                     </small>
                   )}
                   {m.result?.plans.map((p, k) => (
-                    <button
-                      className="assistant-plan-card"
+                    <article
+                      className="conversation-plan"
                       key={k}
-                      onClick={() => setPlan({ plan: p, answer: m.result! })}
+                      aria-label={p.title}
                     >
-                      <span>
-                        <FileText size={18} />
-                        <strong>{p.title}</strong>
-                        <span className="tag gray">方案草稿</span>
-                      </span>
-                      <p>{p.summary}</p>
-                      <small>
-                        {p.steps.length} 个步骤 · {p.sourceIds.length} 条依据{" "}
-                        <ArrowUpRight size={15} />
+                      <h2>{p.title}</h2>
+                      {p.summary && (
+                        <p className="conversation-plan-summary">{p.summary}</p>
+                      )}
+                      <dl>
+                        {p.steps.map((step, j) => {
+                          const match = step.match(
+                            /^([^：:]{1,12})[：:]\s*([\s\S]+)$/,
+                          );
+                          return (
+                            <div key={j}>
+                              <dt>
+                                {match
+                                  ? match[1]
+                                  : `行动 ${String(j + 1).padStart(2, "0")}`}
+                              </dt>
+                              <dd>{match ? match[2] : step}</dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                      <div className="conversation-sources">
+                        {m
+                          .result!.sources.filter((s) =>
+                            p.sourceIds.includes(s.id),
+                          )
+                          .map((s) => (
+                            <button
+                              key={s.id}
+                              onClick={() =>
+                                setPlan({ plan: p, answer: m.result! })
+                              }
+                            >
+                              {s.title}
+                            </button>
+                          ))}
+                      </div>
+                      <div className="conversation-plan-actions">
+                        {m
+                          .result!.actions.filter((a) =>
+                            p.actionIds.includes(a.id),
+                          )
+                          .map((a, j) => (
+                            <button
+                              className={j === 0 ? "btn" : "btn secondary"}
+                              key={a.id}
+                              onClick={() =>
+                                openAction(a, { plan: p, answer: m.result! })
+                              }
+                            >
+                              {a.kind === "customer"
+                                ? "打开访前作战单"
+                                : a.label}
+                            </button>
+                          ))}
+                        <button
+                          className="btn secondary"
+                          onClick={() =>
+                            setPlan({ plan: p, answer: m.result! })
+                          }
+                        >
+                          核对方案依据
+                        </button>
+                      </div>
+                      <small className="conversation-plan-note">
+                        方案草稿供客户经理确认，不自动发送给客户。
                       </small>
-                    </button>
+                    </article>
                   ))}
-                  {m.result?.actions.length ? (
+                  {m.result?.actions.length && !m.result.plans.length ? (
                     <div className="assistant-actions">
                       {m.result.actions.map((a) => (
                         <button
@@ -385,7 +310,7 @@ export function AssistantHome({
         >
           <textarea
             aria-label="向星图助手提问"
-            placeholder="例如：帮我为 KH-001 准备续贷沟通方案，列出需要核实的问题…"
+            placeholder="描述你的需求，或继续追问这个客户…"
             value={draft}
             maxLength={2000}
             disabled={loading}
@@ -403,7 +328,6 @@ export function AssistantHome({
           />
           <div>
             <label>
-              回答模式
               <select
                 aria-label="回答模式"
                 value={mode}
@@ -414,7 +338,10 @@ export function AssistantHome({
                 <option value="plan">生成方案</option>
               </select>
             </label>
-            <small>{draft.length}/2000</small>
+            <small className="composer-hint">
+              依据产品规则与客户信息回答 · 关键操作由客户经理确认
+            </small>
+            <small className="composer-count">{draft.length}/2000</small>
             <button
               type="submit"
               className="btn"
@@ -426,13 +353,13 @@ export function AssistantHome({
               ) : (
                 <ArrowUp size={18} />
               )}
-              发送
             </button>
           </div>
         </form>
         <footer>
           <CheckCircle2 size={12} />
-          使用当前账号可见的脱敏业务摘要；方案需人工核实。请勿输入姓名、证件号或密钥。
+          AI
+          辅助整理与建议，业务结论请结合原文及实际情况核实。请勿输入敏感资料。
         </footer>
       </section>
       <Dialog open={!!plan} onOpenChange={(open) => !open && setPlan(null)}>
@@ -467,7 +394,7 @@ export function AssistantHome({
                 <button
                   className="btn"
                   key={a.id}
-                  onClick={() => openAction(a)}
+                  onClick={() => openAction(a, plan || undefined)}
                 >
                   {a.label}
                   <ArrowUpRight size={15} />

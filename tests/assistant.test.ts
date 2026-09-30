@@ -85,3 +85,20 @@ test("输入长度、模式、角色注入及常见敏感字段有边界", () =>
   assert.ok(!safe.includes("110105199001010010"));
   assert.ok(!safe.includes("sk-test"));
 });
+
+test("连续追问优先保留近期客户，显式切换优先，历史不恢复越权数据", () => {
+  const history = [
+    { role: "user" as const, content: "为 KH-020 和 KH-999 准备方案" },
+  ];
+  const followup = buildContext(base, "帮我改成微信话术", history);
+  assert.equal(followup.data.customers[0].id, "KH-020");
+  assert.ok(!followup.data.customers.some((c) => c.id === "KH-999"));
+  const switched = buildContext(base, "再给 KH-019 做一份", history);
+  assert.equal(switched.data.customers[0].id, "KH-019");
+  const restricted = buildContext(
+    { ...base, customers: base.customers.filter((c) => c.id !== "KH-020") },
+    "这个客户再简短点",
+    history,
+  );
+  assert.ok(!restricted.sources.some((s) => s.id === "customer:KH-020"));
+});

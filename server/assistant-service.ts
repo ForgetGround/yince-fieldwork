@@ -127,7 +127,11 @@ export async function answerChat(
     return {
       scopeKey,
       history: r.rows[0].messages as AssistantMessage[],
-      context: buildContext(state, text),
+      context: buildContext(
+        state,
+        text,
+        r.rows[0].messages as AssistantMessage[],
+      ),
     };
   });
   try {

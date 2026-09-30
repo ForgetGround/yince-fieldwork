@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./dashboard-theme.css";
+import "./conversation-theme.css";
 
 export const metadata: Metadata = {
   title: "银策星图 · 展业版",

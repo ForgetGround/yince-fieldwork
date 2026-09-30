@@ -1,13 +1,12 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  LayoutDashboard,
+  MessageSquare,
+  Plus,
   ScanLine,
   Users,
   ClipboardList,
   ShieldCheck,
-  ChevronRight,
-  ArrowRight,
   ArrowUpRight,
   Upload,
   Bell,
@@ -75,13 +74,14 @@ import { ProductLibrary } from "@/components/product-library";
 import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
 const nav = [
-  { id: "overview", name: "展业工作台", icon: LayoutDashboard },
-  { id: "customers", name: "客户库", icon: Users },
-  { id: "products", name: "产品库", icon: ScanLine },
+  { id: "overview", name: "对话首页", icon: MessageSquare },
+  { id: "customers", name: "我的客户", icon: Users },
+  { id: "products", name: "产品与规则", icon: ScanLine },
+  { id: "preparation", name: "访前作战单", icon: ClipboardList },
   { id: "followups", name: "访后跟进", icon: ClipboardList },
+  { id: "audit", name: "审计记录", icon: ShieldCheck },
   { id: "reviews", name: "审查与转派", icon: FileCheck },
   { id: "team", name: "团队进度", icon: TrendingUp },
-  { id: "audit", name: "合规与审计", icon: ShieldCheck },
   { id: "workspace", name: "工作空间", icon: Layers },
 ];
 function NavButton({
@@ -111,8 +111,32 @@ function NavButton({
     </SidebarMenuButton>
   );
 }
+function NewConversationButton({
+  disabled,
+  onStart,
+}: {
+  disabled: boolean;
+  onStart: () => void;
+}) {
+  const { setOpenMobile } = useSidebar();
+  return (
+    <button
+      className="conversation-new"
+      disabled={disabled}
+      onClick={() => {
+        onStart();
+        setOpenMobile(false);
+      }}
+    >
+      <Plus size={17} />
+      发起新对话
+    </button>
+  );
+}
 export default function Home() {
   const [assistantProduct, setAssistantProduct] = useState<string | null>(null);
+  const [newConversation, setNewConversation] = useState(0);
+  const [chatBusy, setChatBusy] = useState(true);
   const platform = usePlatform();
   const { state, session, busy, loading, error, command } = platform;
   const [view, setView] = useState("overview"),
@@ -329,6 +353,7 @@ export default function Home() {
     );
   return (
     <SidebarProvider
+      className="xingtu-shell"
       style={{ "--sidebar-width": "244px" } as React.CSSProperties}
     >
       <Toaster position="top-center" richColors />
@@ -344,16 +369,21 @@ export default function Home() {
             </div>
             <div>
               <strong>银策星图</strong>
-              <span>
-                展业版 <i>3.0</i>
-              </span>
+              <span>AI 展业工作台</span>
             </div>
           </button>
+          <NewConversationButton
+            disabled={chatBusy}
+            onStart={() => {
+              navigate("overview");
+              setNewConversation((v) => v + 1);
+            }}
+          />
         </SidebarHeader>
         <SidebarContent>
           {[
-            { label: "展业", items: nav.slice(0, 4) },
-            { label: "协作与管理", items: nav.slice(4) },
+            { label: "展业", items: nav.slice(0, 6) },
+            { label: "协作与管理", items: nav.slice(6) },
           ].map((group) => (
             <SidebarGroup key={group.label} className="dashboard-nav-group">
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
@@ -411,12 +441,20 @@ export default function Home() {
               className="dashboard-toggle"
               aria-label="展开或收起导航"
             />
-            <span>团队工作空间</span>
-            <ChevronRight size={14} />
-            <strong>{nav.find((n) => n.id === view)?.name}</strong>
+            <strong>
+              {view === "overview"
+                ? "展业助手"
+                : nav.find((n) => n.id === view)?.name}
+            </strong>
           </div>
           <div className="top-actions">
-            <span className="date-label">{state.referenceDate}</span>
+            {view === "overview" ? (
+              <span className="conversation-engine">
+                DeepSeek Flash · 快速回答
+              </span>
+            ) : (
+              <span className="date-label">{state.referenceDate}</span>
+            )}
             <button
               className="icon-btn"
               aria-label="刷新数据库记录"
@@ -439,39 +477,50 @@ export default function Home() {
             </button>
           </div>
         </header>
-        <div className="workspace">
+        <div
+          className={
+            "workspace" + (view === "overview" ? " conversation-workspace" : "")
+          }
+        >
           {error && (
             <div className="notice warning" role="status">
               {error}
             </div>
           )}
-          {view === "overview" && (
+          <div className="conversation-host" hidden={view !== "overview"}>
             <AssistantHome
               key={scopeKey}
               state={state}
               request={platform.request}
-              preparation={
-                <FieldworkHome
-                  key={scopeKey}
-                  embedded
-                  state={state}
-                  command={command}
-                  busy={busy}
-                  onOpen={openCustomer}
-                  onSource={showSource}
-                  onNavigate={navigate}
-                />
-              }
-              onNavigate={navigate}
-              onAction={(a) => {
+              newConversation={newConversation}
+              onBusyChange={setChatBusy}
+              onAction={(a, productId) => {
                 if (a.kind === "customer") {
                   const c = state.customers.find((c) => c.id === a.target);
-                  if (c) openCustomer(c, LEGACY_PRODUCT_ID);
+                  if (c)
+                    openCustomer(
+                      c,
+                      productId &&
+                        state.products.some((p) => p.id === productId)
+                        ? productId
+                        : LEGACY_PRODUCT_ID,
+                    );
                 } else if (a.kind === "product") {
                   setAssistantProduct(a.target);
                   navigate("products");
                 } else navigate(a.target);
               }}
+            />
+          </div>
+          {view === "preparation" && (
+            <FieldworkHome
+              key={scopeKey}
+              state={state}
+              command={command}
+              busy={busy}
+              onOpen={openCustomer}
+              onSource={showSource}
+              onNavigate={navigate}
             />
           )}
           {view === "customers" && (
@@ -685,7 +734,7 @@ export default function Home() {
               }}
             />
           )}
-          <footer className="workspace-footer">
+          <footer className="workspace-footer" hidden={view === "overview"}>
             <span>银策星图 · 让每一步展业可解释、可追踪</span>
             <span>
               <Database size={13} />{" "}

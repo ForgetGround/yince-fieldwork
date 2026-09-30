@@ -61,7 +61,7 @@ export function FieldworkHome({
           <div className="field-home-header">
             <div>
               <span className="eyebrow">今日工作</span>
-              <h1>展业工作台</h1>
+              <h1>访前作战单</h1>
               <p>查看待办，准备下一次有效沟通。</p>
             </div>
           </div>

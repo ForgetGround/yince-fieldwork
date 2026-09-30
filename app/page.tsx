@@ -75,10 +75,10 @@ import { LEGACY_PRODUCT_ID, productIdOf } from "@/lib/product-matching";
 import { roleNames, type Brief } from "@/lib/platform";
 const nav = [
   { id: "overview", name: "对话首页", icon: MessageSquare },
-  { id: "customers", name: "我的客户", icon: Users },
-  { id: "products", name: "产品与规则", icon: ScanLine },
   { id: "preparation", name: "访前作战单", icon: ClipboardList },
+  { id: "customers", name: "我的客户", icon: Users },
   { id: "followups", name: "访后跟进", icon: ClipboardList },
+  { id: "products", name: "产品与规则", icon: ScanLine },
   { id: "audit", name: "审计记录", icon: ShieldCheck },
   { id: "reviews", name: "审查与转派", icon: FileCheck },
   { id: "team", name: "团队进度", icon: TrendingUp },
